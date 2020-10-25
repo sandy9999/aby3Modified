@@ -10,6 +10,9 @@ oc::TestCollection aby3_tests([](oc::TestCollection& tc) {
     tc.add("Sh3_trim_test                           ", Sh3_trim_test);
     tc.add("Sh3_Encryptor_IO_test                   ", Sh3_Encryptor_IO_test);
     tc.add("Sh3_Encryptor_asyncIO_test              ", Sh3_Encryptor_asyncIO_test);
+    tc.add("Sh3_Encryptor_modified_IO_test	    ", Sh3_Encryptor_modified_IO_test);	    
+    tc.add("Astra_basic_shares_gen_test         ", Astra_basic_shares_gen_test);
+    tc.add("Astra_basic_shares_matrix_gen_test         ", Astra_basic_shares_matrix_gen_test);
     tc.add("Sh3_Evaluator_mul_test                  ", Sh3_Evaluator_mul_test);
     tc.add("Sh3_Evaluator_asyncMul_test             ", Sh3_Evaluator_asyncMul_test);
 	tc.add("Sh3_Evaluator_truncationPai_test        ", Sh3_Evaluator_truncationPai_test);

@@ -14,13 +14,25 @@ namespace aby3
         //Sh3Task init(Sh3Task& dep);
         void init(u64 partyIdx, block prevSeed, block nextSeed, u64 buffSize = 256) { mShareGen.init(prevSeed, nextSeed, buffSize); mPartyIdx = partyIdx; }
         void init(u64 partyIdx, CommPkg& comm, block seed, u64 buffSize = 256) { mShareGen.init(comm, seed, buffSize); mPartyIdx = partyIdx; }
-
-
-
+        
+        si64 astra_preprocess_0(CommPkg& comm);
+        void astra_online_0(CommPkg& comm, i64 val, si64 s);
+        i64 astra_preprocess(CommPkg& comm, int partyNo);
+        i64 astra_online(CommPkg& comm, int partyNo);
+        i64 astra_reveal_1(CommPkg& comm, si64 s);
+        void astra_reveal_2(CommPkg& comm, si64 s);
+        void astra_preprocess_matrix_0(CommPkg& comm, si64Matrix& ret);
+        void astra_online_matrix_0(CommPkg& comm, i64Matrix m, si64Matrix shr);
+        void astra_preprocess_matrix(CommPkg& comm, int partyNo, i64Matrix& res);
+        void astra_online_matrix(CommPkg& comm, int partyNo, i64Matrix& res);
+        void astra_reveal_matrix_1(CommPkg& comm, si64Matrix& s, i64Matrix& dest);
+        void astra_reveal_matrix_2(CommPkg& comm, si64Matrix s);
 
         si64 localInt(CommPkg& comm, i64 val);
         si64 remoteInt(CommPkg& comm);
 
+        si64 localInt_modified(CommPkg& comm, i64 val);
+        si64 remoteInt_modified(CommPkg& comm, int partyIndex);
 
         Sh3Task localInt(Sh3Task dep, i64 val, si64& dest);
         Sh3Task remoteInt(Sh3Task dep, si64& dest);
@@ -72,8 +84,10 @@ namespace aby3
         Sh3Task remotePackedBinary(Sh3Task dep, sPackedBin& dest);
 
         i64 reveal(CommPkg& comm, const si64& x);
+        i64 reveal_modified(CommPkg& comm, const si64& x);
         i64 revealAll(CommPkg& comm, const si64& x);
         void reveal(CommPkg& comm, u64 partyIdx, const si64& x);
+        void reveal_modified(CommPkg& comm, u64 partyIdx, const si64& x);
 
         Sh3Task reveal(Sh3Task dep, const si64& x, i64& dest);
         Sh3Task revealAll(Sh3Task dep, const si64& x, i64& dest);

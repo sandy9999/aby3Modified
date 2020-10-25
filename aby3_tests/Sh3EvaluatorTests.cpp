@@ -60,9 +60,10 @@ void Sh3_Evaluator_asyncMul_test()
         {
             i64Matrix a(trials, trials), b(trials, trials), c(trials, trials), cc(trials, trials);
             rand(a, prng);
+	
             rand(b, prng);
             si64Matrix A(trials, trials), B(trials, trials), C(trials, trials);
-
+		
             enc.localIntMatrix(comm, a, A);
             enc.localIntMatrix(comm, b, B);
 
@@ -636,10 +637,26 @@ void Sh3_Evaluator_mul_test()
             i64Matrix a(trials, trials), b(trials, trials), c(trials, trials), cc(trials, trials);
             rand(a, prng);
             rand(b, prng);
+	    ostreamLock(std::cout)<<"Rows in a: "<<a.rows()<<" Cols in a: "<<a.cols()<<std::endl;
             si64Matrix A(trials, trials), B(trials, trials), C(trials, trials);
 
             auto i0 = enc.localIntMatrix(rt, a, A);
             auto i1 = enc.localIntMatrix(rt, b, B);
+	    /*for(i64 m=0; m<10; m++)
+	    {
+		for(i64 n=0; n<10; n++)
+			ostreamLock(std::cout)<<"a["<<m<<"]["<<n<<"]: "<<a(m,n)<<" share 0 A["<<m<<"]["<<n<<"]: "<<A.mShares[0](m,n)<<" share 1 A["<<m<<"]["<<n<<"]: "<<A.mShares[1](m,n)<<std::endl;
+		ostreamLock(std::cout)<<std::endl;
+	    }
+	    for(i64 m=0; m<10; m++)
+	    {
+		for(i64 n=0; n<10; n++)
+			ostreamLock(std::cout)<<"b["<<m<<"]["<<n<<"]: "<<b(m,n)<<" share 0 B["<<m<<"]["<<n<<"]: "<<B.mShares[0](m,n)<<" share 1 B["<<m<<"]["<<n<<"]: "<<B.mShares[1](m,n)<<std::endl;
+		ostreamLock(std::cout)<<std::endl;
+	    }*/
+	    
+	    ostreamLock(std::cout)<<"a["<<1<<"]["<<1<<"]: "<<a(1,1)<<" share 0 A["<<1<<"]["<<1<<"]: "<<A.mShares[0](1,1)<<" share 1 A["<<1<<"]["<<1<<"]: "<<A.mShares[1](1,1)<<std::endl;
+		ostreamLock(std::cout)<<std::endl;
             auto m = eval.asyncMul(i0 && i1, A, B, C);
             enc.reveal(m, C, cc).get();
 
@@ -670,6 +687,7 @@ void Sh3_Evaluator_mul_test()
             auto i0 = enc.remoteIntMatrix(rt, A);
             auto i1 = enc.remoteIntMatrix(rt, B);
 
+	    ostreamLock(std::cout)<<" share 0 A["<<1<<"]["<<1<<"]: "<<A.mShares[0](1,1)<<" share 1 A["<<1<<"]["<<1<<"]: "<<A.mShares[1](1,1)<<std::endl;
             auto m = eval.asyncMul(i0 && i1, A, B, C);
 
             auto r = enc.reveal(m, 0, C);
@@ -690,6 +708,107 @@ void Sh3_Evaluator_mul_test()
 }
 
 
+void astra_linear_reg_inference_test()
+{
+
+    //throw UnitTestFail("known issue. " LOCATION);
+
+    IOService ios;
+    auto chl01 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "01").addChannel();
+    auto chl10 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "01").addChannel();
+    auto chl02 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "02").addChannel();
+    auto chl20 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "02").addChannel();
+    auto chl12 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "12").addChannel();
+    auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
+
+
+    int trials = 10;
+    CommPkg comms[3];
+    comms[0] = { chl02, chl01 };
+    comms[1] = { chl10, chl12 };
+    comms[2] = { chl21, chl20 };
+
+    Sh3Encryptor encs[3];
+    Sh3Evaluator evals[3];
+
+    encs[0].init(0, toBlock(0, 0), toBlock(0, 1));
+    encs[1].init(1, toBlock(0, 1), toBlock(0, 2));
+    encs[2].init(2, toBlock(0, 2), toBlock(0, 0));
+
+    evals[0].init(0, toBlock(1, 0), toBlock(1, 1));
+    evals[1].init(1, toBlock(1, 1), toBlock(1, 2));
+    evals[2].init(2, toBlock(1, 2), toBlock(1, 0));
+
+    bool failed = false;
+    auto t0 = std::thread([&]() {
+        auto& enc = encs[0];
+        auto& eval = evals[0];
+        auto& comm = comms[0];
+        
+        PRNG prng(ZeroBlock);
+
+        for (u64 j = 0; j < trials; ++j)
+        {
+            i64Matrix w(1, trials), z(1, trials);
+            i64 actual_wz, wz, b;
+            rand(a, prng);
+            rand(b, prng);
+            si64Matrix W(1, trials), Z(1, trials);
+            si64 WZ, B;
+
+            enc.astra_preprocess_matrix_0(comm, W);
+            enc.astra_preprocess_matrix_0(comm, Z);
+            B = enc.astra_preprocess_0(comm);
+            enc.astra_online
+
+            auto m = eval.asyncMul(A, B, C);
+            enc.reveal(m, C, cc).get();
+
+            c = a * b;
+
+
+            if (c != cc)
+            {
+                failed = true;
+                std::cout << c << std::endl;
+                std::cout << cc << std::endl;
+            }
+        }
+        });
+
+
+    auto rr = [&](int i)
+    {
+        auto& enc = encs[i];
+        auto& eval = evals[i];
+        auto& comm = comms[i];
+
+        for (u64 j = 0; j < trials; ++j)
+        {
+            si64Matrix W(1, trials), Z(1, trials);
+            si64 WZ, B;
+            enc.astra_preprocess_matrix(comm, W);
+            enc.astra_preprocess_matrix(comm, Z);
+            
+
+            auto m = eval.asyncMul(i0 && i1, A, B, C);
+
+            auto r = enc.reveal(m, 0, C);
+
+            r.get();
+        }
+    };
+
+    auto t1 = std::thread(rr, 1);
+    auto t2 = std::thread(rr, 2);
+
+    t0.join();
+    t1.join();
+    t2.join();
+
+    if (failed)
+        throw std::runtime_error(LOCATION);
+}
 void Sh3_f64_basics_test()
 {
     f64<D8> v0 = 0.0, v1 = 0.0;

@@ -85,6 +85,7 @@ void integerOperations(u64 partyIdx)
 	// This basic type for this is a si64 (secret shared 64-bit 
 	// signed integer). 
 	si64 sharedInt;
+	std::cout<<"Welcome to Integer Operations\n";
 
 	// At this point it is uninitialized. To put a value into it, 
 	// the parties must run a protocol. This is done as follows.
