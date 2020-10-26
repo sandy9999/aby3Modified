@@ -722,7 +722,7 @@ void Astra_linear_reg_inference_test()
     auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
 
 
-    int trials = 10;
+    int trials = 3;
     CommPkg comms[3];
     comms[0] = { chl02, chl01 };
     comms[1] = { chl10, chl12 };
@@ -735,9 +735,9 @@ void Astra_linear_reg_inference_test()
     encs[1].init(1, toBlock(0, 1), toBlock(0, 2));
     encs[2].init(2, toBlock(0, 2), toBlock(0, 0));
 
-    evals[0].init(0, toBlock(1, 0), toBlock(1, 1));
-    evals[1].init(1, toBlock(1, 1), toBlock(1, 2));
-    evals[2].init(2, toBlock(1, 2), toBlock(1, 0));
+    evals[0].init(0, toBlock(0, 0), toBlock(1, 1));
+    evals[1].init(1, toBlock(1, 1), toBlock(2, 2));
+    evals[2].init(2, toBlock(2, 2), toBlock(0, 0));
 
     bool failed = false;
     auto t0 = std::thread([&]() {
@@ -747,13 +747,15 @@ void Astra_linear_reg_inference_test()
         
         PRNG prng(ZeroBlock);
 
-        for (u64 j = 0; j < trials; ++j)
-        {
             i64Matrix w(1, trials), z(1, trials);
             i64 actual_wz, wz, b = 5;
-            rand(w, prng);
-            rand(z, prng);
-            std::cout<<"Vector w is : "<<w<<std::endl;
+            //rand(w, prng);
+            for(u64 i=0; i<w.size(); ++i)
+                w(i) = i;
+            //rand(z, prng);
+            for(u64 i=0; i<z.size(); ++i)
+                z(i) = i+3;
+            ostreamLock(std::cout)<<"Vector w is : "<<w<<std::endl;
             std::cout<<"Vector z is : "<<z<<std::endl;
             std::cout<<"Bias b is : "<<b<<std::endl;
 
@@ -768,8 +770,9 @@ void Astra_linear_reg_inference_test()
             enc.astra_online_0(comm, b, B);
             eval.astra_preprocess_mult_step1_0(comm);
             eval.astra_preprocess_mult_step2_0(comm, W, Z);
-
-        }
+            //ostreamLock(std::cout)<<"Secret sharing of W for 0: "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
+            //ostreamLock(std::cout)<<"Secret sharing of Z for 0: "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
+            //ostreamLock(std::cout)<<"Secret sharing of B for 0: "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
         });
 
 
@@ -779,8 +782,6 @@ void Astra_linear_reg_inference_test()
         auto& eval = evals[i];
         auto& comm = comms[i];
 
-        for (u64 j = 0; j < trials; ++j)
-        {
             si64Matrix W(1, trials), Z(1, trials);
             si64 WZ, B;
             i64 alpha_prod_share, extra_term, beta_prod, result;
@@ -794,9 +795,13 @@ void Astra_linear_reg_inference_test()
             extra_term = eval.astra_preprocess_mult_step2(comm, i);
             beta_prod = eval.astra_online_mult_matrix(comm, W, Z, extra_term, alpha_prod_share, i);
             result = eval.astra_reveal_mult_matrix(comm, i, beta_prod, alpha_prod_share, B);
-            std::cout<<"The answer is: "<<result<<std::endl;
+            ostreamLock(std::cout)<<"The answer is: "<<result<<std::endl;
 
-        }
+            //ostreamLock(std::cout)<<"Secret sharing of W for "<<i<<": "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
+            //ostreamLock(std::cout)<<"Secret sharing of Z for "<<i<<": "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
+            //ostreamLock(std::cout)<<"Secret sharing of B for "<<i<<": "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
+            //ostreamLock(std::cout)<<"alpha_wz share for "<<i<<": "<<alpha_prod_share<<std::endl;
+            //ostreamLock(std::cout)<<"beta_wz for "<<i<<": "<<beta_prod<<std::endl;
     };
 
     auto t1 = std::thread(rr, 1);

@@ -69,36 +69,41 @@ namespace aby3
         i64 beta_prod_share1, beta_prod_share2;
         if(partyIdx == 1)
         {
-            beta_prod_share1 = (share1.mShares[1].transpose()*share2.mShares[1])(0) -
-            (share1.mShares[1].transpose()*share2.mShares[0])(0) -
-            (share1.mShares[0].transpose()*share2.mShares[1])(0) + extra_term + alpha_prod_share;
+            beta_prod_share1 = (share1.mShares[1]*share2.mShares[1].transpose())(0) -
+            (share1.mShares[1]*share2.mShares[0].transpose())(0) -
+            (share1.mShares[0]*share2.mShares[1].transpose())(0) + extra_term + alpha_prod_share;
             comm.mNext.asyncSendCopy(beta_prod_share1);
             comm.mNext.recv(beta_prod_share2);
         }
         else if(partyIdx == 2)
         {
-            beta_prod_share2 = -((share1.mShares[1].transpose()*share2.mShares[0])(0)) -
-            ((share1.mShares[0].transpose()*share2.mShares[1])(0)) + extra_term +alpha_prod_share;
-            comm.mPrev.asyncSendCopy(beta_prod_share2);
+            beta_prod_share2 = -((share1.mShares[1]*share2.mShares[0].transpose())(0)) -
+            ((share2.mShares[1]*share1.mShares[0].transpose())(0)) + extra_term +alpha_prod_share;
             comm.mPrev.recv(beta_prod_share1);
+            comm.mPrev.asyncSendCopy(beta_prod_share2);
         }
         return beta_prod_share1+beta_prod_share2;
     }
 
     i64 Sh3Evaluator::astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias)
     {
-        i64 other_alpha_prod_share;
+        i64 other_alpha_prod_share,other_bias_share;
         if(partyIdx == 1)
         {
             comm.mNext.asyncSendCopy(alpha_prod_share);
             comm.mNext.recv(other_alpha_prod_share);
+            comm.mNext.asyncSendCopy(bias.mData[0]);
+            comm.mNext.recv(other_bias_share);
         }
         else if(partyIdx == 2)
         {
-            comm.mPrev.asyncSendCopy(alpha_prod_share);
             comm.mPrev.recv(other_alpha_prod_share);
+            comm.mPrev.asyncSendCopy(alpha_prod_share);
+            comm.mPrev.recv(other_bias_share);
+            comm.mPrev.asyncSendCopy(bias.mData[0]);
         }
-        return (beta_prod - (alpha_prod_share + other_alpha_prod_share) + bias.mData[0] + bias.mData[1]);
+        //oc::lout<<(beta_prod-(alpha_prod_share+other_alpha_prod_share))<<std::endl;
+        return (beta_prod - (alpha_prod_share + other_alpha_prod_share) + bias.mData[1] - (bias.mData[0] + other_bias_share));
     }
 
 

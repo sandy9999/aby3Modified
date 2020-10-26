@@ -646,6 +646,16 @@ void Astra_basic_shares_matrix_gen_test()
             e.astra_preprocess_matrix_0(c, mShr); 
 			e.astra_online_matrix_0(c, m, mShr);
 
+            i64Matrix a(1, 3), b(1, 3);
+            for (u64 i = 0; i < a.size(); ++i)
+                a(i) = i;
+
+            for (u64 i = 0; i < b.size(); ++i)
+                b(i) = i+3;
+            ostreamLock(std::cout)<<"Matrix a: "<<a<<std::endl;
+            ostreamLock(std::cout)<<"Matrix b: "<<b<<std::endl;
+            ostreamLock(std::cout)<<"Dot product: "<<a*b.transpose()<<std::endl;
+
 	});
 
 
