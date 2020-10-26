@@ -708,7 +708,7 @@ void Sh3_Evaluator_mul_test()
 }
 
 
-void astra_linear_reg_inference_test()
+void Astra_linear_reg_inference_test()
 {
 
     //throw UnitTestFail("known issue. " LOCATION);
@@ -750,29 +750,25 @@ void astra_linear_reg_inference_test()
         for (u64 j = 0; j < trials; ++j)
         {
             i64Matrix w(1, trials), z(1, trials);
-            i64 actual_wz, wz, b;
-            rand(a, prng);
-            rand(b, prng);
+            i64 actual_wz, wz, b = 5;
+            rand(w, prng);
+            rand(z, prng);
+            std::cout<<"Vector w is : "<<w<<std::endl;
+            std::cout<<"Vector z is : "<<z<<std::endl;
+            std::cout<<"Bias b is : "<<b<<std::endl;
+
             si64Matrix W(1, trials), Z(1, trials);
             si64 WZ, B;
 
             enc.astra_preprocess_matrix_0(comm, W);
             enc.astra_preprocess_matrix_0(comm, Z);
             B = enc.astra_preprocess_0(comm);
-            enc.astra_online
+            enc.astra_online_matrix_0(comm, w, W);
+            enc.astra_online_matrix_0(comm, z, Z);
+            enc.astra_online_0(comm, b, B);
+            eval.astra_preprocess_mult_step1_0(comm);
+            eval.astra_preprocess_mult_step2_0(comm, W, Z);
 
-            auto m = eval.asyncMul(A, B, C);
-            enc.reveal(m, C, cc).get();
-
-            c = a * b;
-
-
-            if (c != cc)
-            {
-                failed = true;
-                std::cout << c << std::endl;
-                std::cout << cc << std::endl;
-            }
         }
         });
 
@@ -787,15 +783,19 @@ void astra_linear_reg_inference_test()
         {
             si64Matrix W(1, trials), Z(1, trials);
             si64 WZ, B;
-            enc.astra_preprocess_matrix(comm, W);
-            enc.astra_preprocess_matrix(comm, Z);
-            
+            i64 alpha_prod_share, extra_term, beta_prod, result;
+            enc.astra_preprocess_matrix(comm, i, W.mShares[0]);
+            enc.astra_preprocess_matrix(comm, i, Z.mShares[0]);
+            B.mData[0] = enc.astra_preprocess(comm, i); 
+            enc.astra_online_matrix(comm, i, W.mShares[1]);
+            enc.astra_online_matrix(comm, i, Z.mShares[1]);
+            B.mData[1] = enc.astra_online(comm, i);
+            alpha_prod_share = eval.astra_preprocess_mult_step1(comm, i);
+            extra_term = eval.astra_preprocess_mult_step2(comm, i);
+            beta_prod = eval.astra_online_mult_matrix(comm, W, Z, extra_term, alpha_prod_share, i);
+            result = eval.astra_reveal_mult_matrix(comm, i, beta_prod, alpha_prod_share, B);
+            std::cout<<"The answer is: "<<result<<std::endl;
 
-            auto m = eval.asyncMul(i0 && i1, A, B, C);
-
-            auto r = enc.reveal(m, 0, C);
-
-            r.get();
         }
     };
 

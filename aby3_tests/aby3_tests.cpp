@@ -18,7 +18,7 @@ oc::TestCollection aby3_tests([](oc::TestCollection& tc) {
 	tc.add("Sh3_Evaluator_truncationPai_test        ", Sh3_Evaluator_truncationPai_test);
 	tc.add("Sh3_Evaluator_asyncMul_fixed_test       ", Sh3_Evaluator_asyncMul_fixed_test);
 	tc.add("Sh3_Evaluator_asyncMul_matrixFixed_test ", Sh3_Evaluator_asyncMul_matrixFixed_test);
-
+    tc.add("Astra_linear_reg_inference_test         ", Astra_linear_reg_inference_test);
 	tc.add("SharedOT_eval_test                      ", SharedOT_eval_test);
 	tc.add("sh3_asyncArithBinMul_test 	            ", sh3_asyncArithBinMul_test);
 	tc.add("sh3_asyncPubArithBinMul_test            ", sh3_asyncPubArithBinMul_test);

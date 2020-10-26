@@ -21,6 +21,87 @@ namespace aby3
         mOtNext.setSeed(mShareGen.mPrevCommon.get<block>());
     }
 
+    void Sh3Evaluator::astra_preprocess_mult_step1_0(CommPkg& comm)
+    {
+       i64 alpha_prod_share1, alpha_prod_share2;
+       alpha_prod_share1 = mShareGen.getShare();
+       alpha_prod_share2 = mShareGen.getShare();
+       comm.mNext.asyncSendCopy(alpha_prod_share1);
+       comm.mPrev.asyncSendCopy(alpha_prod_share2);
+    }
+
+    i64 Sh3Evaluator::astra_preprocess_mult_step1(CommPkg& comm, int partyIdx)
+    {
+       i64 alpha_prod_share;
+       if(partyIdx == 1)
+            comm.mPrev.recv(alpha_prod_share);
+       else if(partyIdx == 2)
+            comm.mNext.recv(alpha_prod_share);
+       return alpha_prod_share;
+    }
+
+    void Sh3Evaluator::astra_preprocess_mult_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2)
+    {
+        i64 y = 0,y1 = mShareGen.getShare(),y2;
+        for (u64 i=0; i<share1.size(); ++i)
+            y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
+        y2 = y - y1;
+        comm.mNext.asyncSendCopy(y1);
+        comm.mPrev.asyncSendCopy(y2);
+
+    }
+    i64 Sh3Evaluator::astra_preprocess_mult_step2(CommPkg& comm, int partyIdx)
+    {
+        i64 extra_term;
+        if(partyIdx == 1)
+        {
+            comm.mPrev.recv(extra_term);
+        }
+        else if(partyIdx == 2)
+        {
+            comm.mNext.recv(extra_term);
+        }
+        return extra_term;
+    }
+
+    i64 Sh3Evaluator::astra_online_mult_matrix(CommPkg& comm, si64Matrix share1, si64Matrix share2, i64 extra_term, i64 alpha_prod_share, int partyIdx)
+    {
+        i64 beta_prod_share1, beta_prod_share2;
+        if(partyIdx == 1)
+        {
+            beta_prod_share1 = (share1.mShares[1].transpose()*share2.mShares[1])(0) -
+            (share1.mShares[1].transpose()*share2.mShares[0])(0) -
+            (share1.mShares[0].transpose()*share2.mShares[1])(0) + extra_term + alpha_prod_share;
+            comm.mNext.asyncSendCopy(beta_prod_share1);
+            comm.mNext.recv(beta_prod_share2);
+        }
+        else if(partyIdx == 2)
+        {
+            beta_prod_share2 = -((share1.mShares[1].transpose()*share2.mShares[0])(0)) -
+            ((share1.mShares[0].transpose()*share2.mShares[1])(0)) + extra_term +alpha_prod_share;
+            comm.mPrev.asyncSendCopy(beta_prod_share2);
+            comm.mPrev.recv(beta_prod_share1);
+        }
+        return beta_prod_share1+beta_prod_share2;
+    }
+
+    i64 Sh3Evaluator::astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias)
+    {
+        i64 other_alpha_prod_share;
+        if(partyIdx == 1)
+        {
+            comm.mNext.asyncSendCopy(alpha_prod_share);
+            comm.mNext.recv(other_alpha_prod_share);
+        }
+        else if(partyIdx == 2)
+        {
+            comm.mPrev.asyncSendCopy(alpha_prod_share);
+            comm.mPrev.recv(other_alpha_prod_share);
+        }
+        return (beta_prod - (alpha_prod_share + other_alpha_prod_share) + bias.mData[0] + bias.mData[1]);
+    }
+
+
     //void Sh3Evaluator::mul(
     //	CommPkg& comm,
     //	const si64Matrix& A,

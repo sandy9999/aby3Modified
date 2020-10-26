@@ -24,6 +24,13 @@ namespace aby3
 
 		void init(u64 partyIdx, block prevSeed, block nextSeed, u64 buffSize = 256);
 		void init(u64 partyIdx, CommPkg& comm, block seed, u64 buffSize = 256);
+        void astra_preprocess_mult_step1_0(CommPkg& comm);
+        i64 astra_preprocess_mult_step1(CommPkg& comm, int partyIdx);
+        void astra_preprocess_mult_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2);
+        i64 astra_preprocess_mult_step2(CommPkg& comm, int partyIdx);
+        i64 astra_online_mult_matrix(CommPkg& comm, si64Matrix share1, si64Matrix share2, i64 extra_term, i64
+        alpha_prod_share, int partyIdx);
+        i64 astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias);
 
 		bool DEBUG_disable_randomization = false;
 
