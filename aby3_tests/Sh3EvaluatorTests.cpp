@@ -814,7 +814,117 @@ void Astra_linear_reg_inference_test()
     if (failed)
         throw std::runtime_error(LOCATION);
 }
+void Astra_bit_injection_test()
+{
 
+    //throw UnitTestFail("known issue. " LOCATION);
+
+    IOService ios;
+    auto chl01 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "01").addChannel();
+    auto chl10 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "01").addChannel();
+    auto chl02 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "02").addChannel();
+    auto chl20 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "02").addChannel();
+    auto chl12 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "12").addChannel();
+    auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
+
+
+    int trials = 3;
+    CommPkg comms[3];
+    comms[0] = { chl02, chl01 };
+    comms[1] = { chl10, chl12 };
+    comms[2] = { chl21, chl20 };
+
+    Sh3Encryptor encs[3];
+    Sh3Evaluator evals[3];
+
+    encs[0].init(0, toBlock(0, 0), toBlock(0, 1));
+    encs[1].init(1, toBlock(0, 1), toBlock(0, 2));
+    encs[2].init(2, toBlock(0, 2), toBlock(0, 0));
+
+    evals[0].init(0, toBlock(0, 0), toBlock(1, 1));
+    evals[1].init(1, toBlock(1, 1), toBlock(2, 2));
+    evals[2].init(2, toBlock(2, 2), toBlock(0, 0));
+
+	//Here Goal is to calculate bx
+    bool failed = false;
+    auto t0 = std::thread([&]() {
+        auto& enc = encs[0];
+        auto& eval = evals[0];
+        auto& comm = comms[0];
+        
+        PRNG prng(ZeroBlock);
+
+            
+	    //i64Matrix w(1, trials), z(1, trials);
+            i64 b = 1; i64 x = 11;
+            //rand(w, prng);
+            //for(u64 i=0; i<w.size(); ++i)
+             //   w(i) = i;
+            //rand(z, prng);
+           // for(u64 i=0; i<z.size(); ++i)
+              //  z(i) = i+3;
+            ostreamLock(std::cout)<<"bit b is : "<<b<<std::endl;
+            ostreamLock(std::cout)<<"Integer x is : "<<x<<std::endl;
+            //ostreamLock(std::cout)<<"Bias b is : "<<b<<std::endl;
+
+            //si64Matrix W(1, trials), Z(1, trials);
+	    // si64 WZ, B;
+            si64 b_Shares, a_Shares;
+
+            b_Shares = enc.astra_binary_preprocess_0(comm);
+            a_Shares = enc.astra_preprocess_0(comm);
+            //B = enc.astra_preprocess_0(comm);
+            enc.astra_binary_online_0(comm, b, b_Shares);
+            enc.astra_online_0(comm, x, a_Shares);
+            //enc.astra_online_0(comm, b, B);
+            //eval.astra_preprocess_mult_step1_0(comm);
+	    eval.astra_preprocess_mult_step2_0_0(comm, b_Shares);
+            eval.astra_preprocess_mult_step2_0_1(comm, b_Shares, a_Shares);
+	    
+            //ostreamLock(std::cout)<<"Secret sharing of W for 0: "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
+            //ostreamLock(std::cout)<<"Secret sharing of Z for 0: "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
+            //ostreamLock(std::cout)<<"Secret sharing of B for 0: "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
+        });
+
+
+    auto rr = [&](int i)
+    {
+        auto& enc = encs[i];
+        auto& eval = evals[i];
+        auto& comm = comms[i];
+
+            si64Matrix W(1, trials), Z(1, trials);
+            si64 WZ, B;
+            i64 alpha_prod_share, extra_term, beta_prod, result;
+            enc.astra_preprocess_matrix(comm, i, W.mShares[0]);
+            enc.astra_preprocess_matrix(comm, i, Z.mShares[0]);
+            B.mData[0] = enc.astra_preprocess(comm, i); 
+            enc.astra_online_matrix(comm, i, W.mShares[1]);
+            enc.astra_online_matrix(comm, i, Z.mShares[1]);
+            B.mData[1] = enc.astra_online(comm, i);
+            alpha_prod_share = eval.astra_preprocess_mult_step1(comm, i);
+            extra_term = eval.astra_preprocess_mult_step2(comm, i);
+            beta_prod = eval.astra_online_mult_matrix(comm, W, Z, extra_term, alpha_prod_share, i);
+            result = eval.astra_reveal_mult_matrix(comm, i, beta_prod, alpha_prod_share, B);
+            ostreamLock(std::cout)<<"The answer is: "<<result<<std::endl;
+
+            ostreamLock(std::cout)<<"Secret sharing of W for "<<i<<": "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
+            ostreamLock(std::cout)<<"Secret sharing of Z for "<<i<<": "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
+            ostreamLock(std::cout)<<"Secret sharing of B for "<<i<<": "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
+            ostreamLock(std::cout)<<"alpha_wz share for "<<i<<": "<<alpha_prod_share<<std::endl;
+            ostreamLock(std::cout)<<"beta_wz for "<<i<<": "<<beta_prod<<std::endl;
+    };
+
+    auto t1 = std::thread(rr, 1);
+    auto t2 = std::thread(rr, 2);
+
+    t0.join();
+    t1.join();
+    t2.join();
+
+    if (failed)
+        throw std::runtime_error(LOCATION);
+}
 /*
 void Astra_linear_float_reg_inference_test()
 {
