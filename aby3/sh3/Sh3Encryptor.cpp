@@ -28,6 +28,17 @@ namespace aby3
         comm.mPrev.asyncSendCopy(ret[1]);
         return ret;
 	}
+	
+	si64 Sh3Encryptor::astra_binary_preprocess_0(CommPkg& comm)
+	{
+        si64 ret;
+        ret[0] = mShareGen.getBinaryShare();
+        ret[1] = mShareGen.getBinaryShare();
+        comm.mNext.asyncSendCopy(ret[0]);
+        comm.mPrev.asyncSendCopy(ret[1]);
+        return ret;
+	}
+	
 
     void Sh3Encryptor::astra_online_0(CommPkg& comm, i64 val, si64 s)
     {
@@ -35,6 +46,13 @@ namespace aby3
         comm.mNext.asyncSendCopy(beta);
         comm.mPrev.asyncSendCopy(beta);
     }
+	void Sh3Encryptor::astra_binary_online_0(CommPkg& comm, i64 val, si64 s)
+    {
+        i64 beta = s.mData[0] ^ s.mData[1] ^ val;
+        comm.mNext.asyncSendCopy(beta);
+        comm.mPrev.asyncSendCopy(beta);
+    }
+	
 
     i64 Sh3Encryptor::astra_preprocess(CommPkg& comm, int partyNo)
     {
@@ -71,6 +89,14 @@ namespace aby3
         comm.mNext.recv(other_share);
         return s.mData[1] - (other_share + s.mData[0]);
     }
+	
+    i64 Sh3Encryptor::astra_binary_reveal_1(CommPkg& comm, si64 s)
+    {
+        i64 other_share;
+        comm.mNext.recv(other_share);
+        return s.mData[1] ^ (other_share ^ s.mData[0]);
+    }
+	
     
     void Sh3Encryptor::astra_reveal_2(CommPkg& comm, si64 s)
     {
