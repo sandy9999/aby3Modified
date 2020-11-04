@@ -74,7 +74,7 @@ namespace aby3
         i64 y = 0,y1 = mShareGen.getShare(),y2;
         //for (u64 i=0; i<share1.size(); ++i)
           //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
-        y =  (share1.mShares[0]  ^ share1.mShares[1] ) * (share2.mShares[0] ^ share2.mShares[1])
+        y =  (share1.mShares[0]  ^ share1.mShares[1] ) * (share2.mShares[0] + share2.mShares[1])
         y2 = y - y1;
         comm.mNext.asyncSendCopy(y1);
         comm.mPrev.asyncSendCopy(y2);
@@ -114,7 +114,34 @@ namespace aby3
         }
         return beta_prod_share1+beta_prod_share2;
     }
-
+    i64 Sh3Evaluator::astra_online_bit_injection(CommPkg& comm, si64 b_Shares, si64 a_Shares, i64 alpha_b_share, i64 alpha_b_alpha_x_share, int partyIdx)
+    {
+        i64 result_share_1, result_share_2;
+        if(partyIdx == 1)
+        {
+            //[Y]_1 = (beta_b * beta_x) - (beta_b * alpha_x) + ([alpha_b]_1 * beta_x) - ([alpha_b * alpha_x]_1) 
+            //        + 2([alpha_b]_1 * beta_b * beta_x) + 2(beta_b * [alpha_b * alpha_x]_1)
+            
+            result_share_1 = (b_Shares.mData[1] * a_Shares.mData[1]) - (b_Shares.mData[1] * a_Shares.mData[0]) + (alpha_b_share * a_Shares.mData[1] )
+                               - alpha_b_alpha_x_share + 2(alpha_b_share * b_Shares.mData[1] * a_Shares.mData[1]) + 2(b_Shares.mData[1] * alpha_b_alpha_x_share );
+                
+            comm.mNext.asyncSendCopy(result_share_1);
+            comm.mNext.recv(result_share_2);
+        }
+        else if(partyIdx == 2)
+        {
+            
+            //[Y]_2 = 0 - 0 + ((alpha_b - [alpha_b]_1) * beta_x) - (alpha_b * alpha_x - [alpha_b * alpha_x]_1) + 2((alpha_b - [alpha_b]_1) * beta_b * beta_x) 
+   			//		  + 2(beta_b * (alpha_b * alpha_x - [alpha_b * alpha_x]_1))
+            
+            result_share_2 = (alpha_b_share * a_Shares.mData[1]) - alpha_b_alpha_x_share + 2(alpha_b_share * b_Shares.mData[1] * a_Shares.mData[1])
+                              + 2((b_Shares.mData[1] * alpha_b_alpha_x_share);
+            
+            comm.mPrev.recv(result_share_1);
+            comm.mPrev.asyncSendCopy(result_share_2);
+        }
+        return result_share_1+result_share_2;
+    }
     i64 Sh3Evaluator::astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias)
     {
         i64 other_alpha_prod_share,other_bias_share;
