@@ -878,8 +878,8 @@ void Astra_bit_injection_test()
             enc.astra_online_0(comm, x, a_Shares);
             //enc.astra_online_0(comm, b, B);
             //eval.astra_preprocess_mult_step1_0(comm);
-	    eval.astra_preprocess_mult_step2_0_0(comm, b_Shares);
-            eval.astra_preprocess_mult_step2_0_1(comm, b_Shares, a_Shares);
+	    eval.astra_binary_preprocess_mult_step2_0_0(comm, b_Shares);
+            eval.astra_binary_preprocess_mult_step2_0_1(comm, b_Shares, a_Shares);
 	    
             //ostreamLock(std::cout)<<"Secret sharing of W for 0: "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
             //ostreamLock(std::cout)<<"Secret sharing of Z for 0: "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
@@ -893,26 +893,29 @@ void Astra_bit_injection_test()
         auto& eval = evals[i];
         auto& comm = comms[i];
 
-            si64Matrix W(1, trials), Z(1, trials);
-            si64 WZ, B;
-            i64 alpha_prod_share, extra_term, beta_prod, result;
-            enc.astra_preprocess_matrix(comm, i, W.mShares[0]);
-            enc.astra_preprocess_matrix(comm, i, Z.mShares[0]);
-            B.mData[0] = enc.astra_preprocess(comm, i); 
-            enc.astra_online_matrix(comm, i, W.mShares[1]);
-            enc.astra_online_matrix(comm, i, Z.mShares[1]);
-            B.mData[1] = enc.astra_online(comm, i);
-            alpha_prod_share = eval.astra_preprocess_mult_step1(comm, i);
-            extra_term = eval.astra_preprocess_mult_step2(comm, i);
-            beta_prod = eval.astra_online_mult_matrix(comm, W, Z, extra_term, alpha_prod_share, i);
-            result = eval.astra_reveal_mult_matrix(comm, i, beta_prod, alpha_prod_share, B);
-            ostreamLock(std::cout)<<"The answer is: "<<result<<std::endl;
+  
+	    si64 b_Shares, a_Shares;
+            i64 alpha_b_share, alpha_b_alpha_x_share, result;
+	    
+	    // alpha - Shares for both bit b and Integer x
+            b_Shares.mData[0] = enc.astra_preprocess(comm, i);
+	    a_Shares.mData[0] = enc.astra_prprocess(comm,i);
+	    
+	    // Beta Shares
+	    b_Shares.mData[1] = enc.astra_online(comm,i);
+	    a_Shares.mData[1] = enc.astra_online(comm,i);
+		    
+ 	    // [alpha_b] and [alpha_b_alpha_x]
+            alpha_b_share = eval.astra_preprocess_mult_step1(comm, i);
+	    alpha_b_alpha_x_share =  eval.astra_preprocess_mult_step1(comm, i);
+            
+            result = eval.astra_online_bit_injection(comm,b_Shares,a_Shares,alpha_b_share,alpha_b_alpha_x_share,i);
+	    ostreamLock(std::cout)<<"The answer is: "<<result<<std::endl;
 
-            ostreamLock(std::cout)<<"Secret sharing of W for "<<i<<": "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
-            ostreamLock(std::cout)<<"Secret sharing of Z for "<<i<<": "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
-            ostreamLock(std::cout)<<"Secret sharing of B for "<<i<<": "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
-            ostreamLock(std::cout)<<"alpha_wz share for "<<i<<": "<<alpha_prod_share<<std::endl;
-            ostreamLock(std::cout)<<"beta_wz for "<<i<<": "<<beta_prod<<std::endl;
+            ostreamLock(std::cout)<<"Secret sharing of b for "<<i<<": "<<b_Shares.mData[0]<<" and "<<b_Shares.mData[1]<<std::endl;
+            ostreamLock(std::cout)<<"Secret sharing of x for "<<i<<": "<<a_Shares.mData[0]<<" and "<< a_Shares.mData[1]<<std::endl;
+            ostreamLock(std::cout)<<"alpha_b share for "<<i<<": "<<alpha_b_share<<std::endl;
+            ostreamLock(std::cout)<<"alpha_b_alpha_x_share for "<<i<<": "<<alpha_b_alpha_x_share<<std::endl;
     };
 
     auto t1 = std::thread(rr, 1);
