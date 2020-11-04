@@ -854,7 +854,6 @@ void Astra_bit_injection_test()
         
         PRNG prng(ZeroBlock);
 
-            
 	    //i64Matrix w(1, trials), z(1, trials);
             i64 b = 1; i64 x = 11;
             //rand(w, prng);
@@ -927,6 +926,97 @@ void Astra_bit_injection_test()
 
     if (failed)
         throw std::runtime_error(LOCATION);
+
+void Astra_bit2A_test()
+{
+
+	IOService ios;
+	auto chl01 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "01").addChannel();
+	auto chl10 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "01").addChannel();
+	auto chl02 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "02").addChannel();
+	auto chl20 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "02").addChannel();
+	auto chl12 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "12").addChannel();
+	auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
+
+
+	int trials = 10;
+	CommPkg comm[3];
+	comm[0] = { chl02, chl01 };
+	comm[1] = { chl10, chl12 };
+	comm[2] = { chl21, chl20 };
+
+	Sh3Encryptor enc[3];
+	enc[0].init(0, toBlock(0, 0), toBlock(1, 1));
+	enc[1].init(1, toBlock(1, 1), toBlock(2, 2));
+	enc[2].init(2, toBlock(2, 2), toBlock(0, 0));
+
+	bool failed = false;
+	auto t0 = std::thread([&]() {
+			auto i = 0;
+			auto& e = enc[i];
+			auto& c = comm[i];
+			PRNG prng(ZeroBlock);
+
+			i64 val;
+			sb64 bshr;
+      si64 alpha_bshr_complement_shr,beta_bshr_complement_shr;
+			val = 5;
+  		bshr = e.astra_binary_preprocess_0(c);
+	  	e.astra_binary_online_0(c, val, bshr);
+      alpha_bshr_complement = ~bshr;
+      alpha_bshr_complement_shr = e.astra_preprocess_0(c);
+      e.astra_online_0(c, alpha_bshr_complement, alpha_bshr_complement_shr);
+      beta_bshr_complement_shr = e.astra_bit2a_online_0(c);
+      eval.astra_preprocess_mult_step1_0(c);
+      eval.astra_preprocess_mult_step2_0(c, alpha_bshr_complement_shr, beta_bshr_complement_shr);
+
+			}
+
+	});
+
+
+	auto rr = [&](int i) {
+		auto& e = enc[i];
+		auto& c = comm[i];
+
+    i64 alpha_prod_alpha_beta_bshrs_complement_share, beta_prod_alpha_beta_bshrs_complement_share, extra_term, recovered_val;
+    sb64 bshr;
+		si64 alpha_bshr_complement_shr, beta_bshr_complement_shr;
+
+	  bshr.mData[0] = e.astra_binary_preprocess(c, i);
+		bshr.mData[1] = e.astra_binary_online(c, i);
+		alpha_bshr_complement_shr.mData[0] = e.astra_preprocess(c, i);
+    alpha_bshr_complement_shr.mData[1] = e.astra_preprocess{c, i);
+    beta_bshr_complement = ~bshr.mData[1];
+    beta_shr_complement_shr = e.astra_bit2a_online(c, beta_bshr_complement, i);
+    alpha_prod_alpha_beta_bshrs_complement_share = eval.astr_preprocess_mult_step1(c, i);
+    extra_term = astra_preprocess_mult_step2(c, i);
+    beta_prod_alpha_beta_bshrs_complement_share = astra_bit2a_online_mult(c, alpha_bshr_complement_shr, beta_bshr_complement_shr, extra_term, alpha_prod_alpha_beta_bshrs_complement_share, i);
+    recovered_val = eval.astra_bit2a_reveal(c, i, beta_prod_alpha_beta_bshrs_complement_share, alpha_prod_alpha_beta_bshrs_complement_share, alpha_bshr_complement_shr, beta_bshr_complement_shr);
+
+			/*if(i == 1)
+			{	
+                i64 recovered_val;
+			    recovered_val = e.astra_reveal_1(c, shrs[j]);
+                std::cout<<"Recovered value: "<<recovered_val<<std::endl;
+
+            }
+            else if(i == 2)
+            {
+                e.astra_reveal_2(c, shrs[j]);
+            }*/
+
+	};
+
+	auto t1 = std::thread(rr, 1);
+	auto t2 = std::thread(rr, 2);
+
+	t0.join();
+	t1.join();
+	t2.join();
+
+	if (failed)
+		throw std::runtime_error(LOCATION);
 }
 /*
 void Astra_linear_float_reg_inference_test()

@@ -48,38 +48,16 @@ namespace aby3
        return alpha_prod_share;
     }
 
-    void Sh3Evaluator::astra_preprocess_mult_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2)
+    void Sh3Evaluator::astra_preprocess_mult_step2_0(CommPkg& comm, si64 share1, si64 share2)
     {
         i64 y = 0,y1 = mShareGen.getShare(),y2;
-        for (u64 i=0; i<share1.size(); ++i)
-            y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
+        y = (share1.mData[0] + share1.mData[1])*(share2.mData[0] + share2.mData[1]);
         y2 = y - y1;
         comm.mNext.asyncSendCopy(y1);
         comm.mPrev.asyncSendCopy(y2);
 
     }
-          void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_0(CommPkg& comm, si64 share1)
-    {
-        i64 y = 0,y1 = mShareGen.getShare(),y2;
-        //for (u64 i=0; i<share1.size(); ++i)
-          //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
-        y =  (share1.mShares[0] ^ share1.mShares[1] )
-        y2 = y - y1;
-        comm.mNext.asyncSendCopy(y1);
-        comm.mPrev.asyncSendCopy(y2);
 
-    }
-        void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_1(CommPkg& comm, si64 share1, si64 share2)
-    {
-        i64 y = 0,y1 = mShareGen.getShare(),y2;
-        //for (u64 i=0; i<share1.size(); ++i)
-          //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
-        y =  (share1.mShares[0]  ^ share1.mShares[1] ) * (share2.mShares[0] + share2.mShares[1])
-        y2 = y - y1;
-        comm.mNext.asyncSendCopy(y1);
-        comm.mPrev.asyncSendCopy(y2);
-
-    }
     i64 Sh3Evaluator::astra_preprocess_mult_step2(CommPkg& comm, int partyIdx)
     {
         i64 extra_term;
@@ -92,6 +70,72 @@ namespace aby3
             comm.mNext.recv(extra_term);
         }
         return extra_term;
+    }
+
+    void Sh3Evaluator::astra_preprocess_mult_matrix_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2)
+    {
+        i64 y = 0,y1 = mShareGen.getShare(),y2;
+        for (u64 i=0; i<share1.size(); ++i)
+            y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
+        y2 = y - y1;
+        comm.mNext.asyncSendCopy(y1);
+        comm.mPrev.asyncSendCopy(y2);
+
+    }
+    
+    void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_0(CommPkg& comm, si64 share1)
+    {
+        i64 y = 0,y1 = mShareGen.getShare(),y2;
+        //for (u64 i=0; i<share1.size(); ++i)
+          //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
+        y =  (share1.mShares[0] ^ share1.mShares[1] )
+        y2 = y - y1;
+        comm.mNext.asyncSendCopy(y1);
+        comm.mPrev.asyncSendCopy(y2);
+
+    }
+    
+    void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_1(CommPkg& comm, si64 share1, si64 share2)
+    {
+        i64 y = 0,y1 = mShareGen.getShare(),y2;
+        //for (u64 i=0; i<share1.size(); ++i)
+          //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
+        y =  (share1.mShares[0]  ^ share1.mShares[1] ) * (share2.mShares[0] + share2.mShares[1])
+        y2 = y - y1;
+        comm.mNext.asyncSendCopy(y1);
+        comm.mPrev.asyncSendCopy(y2);
+
+    }
+
+    i64 Sh3Evaluator::astra_preprocess_mult_matrix_step2(CommPkg& comm, int partyIdx)
+    {
+        i64 extra_term;
+        if(partyIdx == 1)
+        {
+            comm.mPrev.recv(extra_term);
+        }
+        else if(partyIdx == 2)
+        {
+            comm.mNext.recv(extra_term);
+        }
+        return extra_term;
+    }
+
+    i64 Sh3Evaluator::astra_bit2a_online_mult(CommPkg& comm, si64 share1, si64 share2, i64 extra_term, i64 alpha_prod_share, int partyIdx)
+    {
+        i64 beta_prod_share;
+        if(partyIdx == 1)
+        {
+            beta_prod_share = (share1.mData[1]*share2.mData[1]) -
+            (share1.mData[1]*share2.mData[0]) -
+            (share1.mData[0]*share2.mData[1]) + extra_term + alpha_prod_share;
+        }
+        else if(partyIdx == 2)
+        {
+            beta_prod_share = -(share1.mData[1]*share2.mData[0]) -
+            (share2.mData[1]*share1.mData[0]) + extra_term +alpha_prod_share;
+        }
+        return beta_prod_share;
     }
 
     i64 Sh3Evaluator::astra_online_mult_matrix(CommPkg& comm, si64Matrix share1, si64Matrix share2, i64 extra_term, i64 alpha_prod_share, int partyIdx)
