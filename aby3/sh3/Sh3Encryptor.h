@@ -23,7 +23,7 @@ namespace aby3
         void astra_share_reveal_sender(CommPkg& comm, si64 share, int partyIdx);
         sb64 astra_binary_share_preprocess_distributor(CommPkg& comm, int partyIdx);
         i64 astra_binary_share_preprocess_evaluator(CommPkg& comm, int partyIdx);
-        void astra_share_binary_online_distributor(CommPkg& comm, i64 x, sb64 alpha_b, int partyIdx);
+        void astra_binary_share_online_distributor(CommPkg& comm, i64 x, sb64 alpha_b, int partyIdx);
         i64 astra_binary_share_online_evaluator(CommPkg& comm, int partyIdx);
         i64 astra_binary_share_reveal_receiver(CommPkg& comm, sb64 share, int partyIdx);
         void astra_binary_share_reveal_sender(CommPkg& comm, sb64 share, int partyIdx);

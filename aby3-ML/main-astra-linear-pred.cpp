@@ -1,4 +1,4 @@
-#include "main-astra-pred.h"
+#include "main-astra-linear-pred.h"
 #include "aby3/sh3/Sh3Encryptor.h"
 #include <cryptoTools/Network/Channel.h>
 #include <cryptoTools/Network/IOService.h>

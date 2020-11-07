@@ -161,7 +161,7 @@ namespace aby3
   //Astra binary sharing of a value Preprocessing Phase ends
 
   //Astra binary sharing of a value Online Phase begins
-  void Sh3Encryptor::astra_share_binary_online_distributor(CommPkg& comm, i64 x, sb64 alpha_b, int partyIdx)
+  void Sh3Encryptor::astra_binary_share_online_distributor(CommPkg& comm, i64 x, sb64 alpha_b, int partyIdx)
   {
     if(partyIdx == 0)
     {
