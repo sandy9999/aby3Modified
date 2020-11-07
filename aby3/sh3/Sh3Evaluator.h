@@ -24,13 +24,22 @@ namespace aby3
 
 		void init(u64 partyIdx, block prevSeed, block nextSeed, u64 buffSize = 256);
 		void init(u64 partyIdx, CommPkg& comm, block seed, u64 buffSize = 256);
-        void astra_preprocess_mult_step1_0(CommPkg& comm);
-        i64 astra_preprocess_mult_step1(CommPkg& comm, int partyIdx);
-        void astra_preprocess_mult_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2);
-        i64 astra_preprocess_mult_step2(CommPkg& comm, int partyIdx);
-        i64 astra_online_mult_matrix(CommPkg& comm, si64Matrix share1, si64Matrix share2, i64 extra_term, i64
-        alpha_prod_share, int partyIdx);
-        i64 astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias);
+    /*void astra_preprocess_mult_step1_0(CommPkg& comm);
+    void astra_binary_preprocess_mult_step1_0(CommPkg& comm);
+    i64 astra_preprocess_mult_step1(CommPkg& comm, int partyIdx);
+    void astra_preprocess_mult_step2_0(CommPkg& comm, si64 share1, si64 share2);
+    i64 astra_preprocess_mult_step2(CommPkg& comm, int partyIdx); 
+    void astra_binary_preprocess_mult_step2_0_0(CommPkg& comm, sb64 share1);
+    void astra_binary_preprocess_mult_step2_0_1(CommPkg& comm, sb64 share1, sb64 share2);
+
+    void astra_preprocess_mult_matrix_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2);
+    i64 astra_preprocess_mult_matrix_step2(CommPkg& comm, int partyIdx);
+    i64 astra_bit2a_online_mult(CommPkg& comm, si64 share1, si64 share2, i64 extra_term, i64 alpha_prod_share, int partyIdx);
+    void astra_online_bit_injection(CommPkg& comm, si64 b_Shares, si64 a_Shares, i64 alpha_b_share, i64 alpha_b_alpha_x_share, int partyIdx);
+
+    i64 astra_online_mult_matrix(CommPkg& comm, si64Matrix share1, si64Matrix share2, i64 extra_term, i64 alpha_prod_share, int partyIdx);
+    i64 astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias);
+    i64 astra_bit2a_reveal(CommPkg& comm, int partyIdx, i64 beta_prod_share, i64 alpha_prod_share, i64 alpha_share, i64 beta_share);*/
 
 		bool DEBUG_disable_randomization = false;
 

@@ -12,6 +12,5 @@ void Sh3_Evaluator_asyncMul_matrixFixed_test(const oc::CLP&);
 
 void sh3_asyncArithBinMul_test(const oc::CLP&);
 void sh3_asyncPubArithBinMul_test(const oc::CLP&);
-
-void Astra_linear_reg_inference_test();
-void Sh3_f64_basics_test(); 
+void Sh3_f64_basics_test();
+//void Astra_bit_injection_test(); 

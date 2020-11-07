@@ -21,58 +21,7 @@ namespace aby3
         mOtNext.setSeed(mShareGen.mPrevCommon.get<block>());
     }
 
-    void Sh3Evaluator::astra_preprocess_mult_step1_0(CommPkg& comm)
-    {
-       i64 alpha_prod_share1, alpha_prod_share2;
-       alpha_prod_share1 = mShareGen.getShare();
-       alpha_prod_share2 = mShareGen.getShare();
-       comm.mNext.asyncSendCopy(alpha_prod_share1);
-       comm.mPrev.asyncSendCopy(alpha_prod_share2);
-    }
-     void Sh3Evaluator::astra_binary_preprocess_mult_step1_0(CommPkg& comm)
-    {
-       i64 alpha_prod_share1, alpha_prod_share2;
-       alpha_prod_share1 = mShareGen.getBinaryShare();
-       alpha_prod_share2 = mShareGen.getBinaryShare();
-       comm.mNext.asyncSendCopy(alpha_prod_share1);
-       comm.mPrev.asyncSendCopy(alpha_prod_share2);
-    }
-
-    i64 Sh3Evaluator::astra_preprocess_mult_step1(CommPkg& comm, int partyIdx)
-    {
-       i64 alpha_prod_share;
-       if(partyIdx == 1)
-            comm.mPrev.recv(alpha_prod_share);
-       else if(partyIdx == 2)
-            comm.mNext.recv(alpha_prod_share);
-       return alpha_prod_share;
-    }
-
-    void Sh3Evaluator::astra_preprocess_mult_step2_0(CommPkg& comm, si64 share1, si64 share2)
-    {
-        i64 y = 0,y1 = mShareGen.getShare(),y2;
-        y = (share1.mData[0] + share1.mData[1])*(share2.mData[0] + share2.mData[1]);
-        y2 = y - y1;
-        comm.mNext.asyncSendCopy(y1);
-        comm.mPrev.asyncSendCopy(y2);
-
-    }
-
-    i64 Sh3Evaluator::astra_preprocess_mult_step2(CommPkg& comm, int partyIdx)
-    {
-        i64 extra_term;
-        if(partyIdx == 1)
-        {
-            comm.mPrev.recv(extra_term);
-        }
-        else if(partyIdx == 2)
-        {
-            comm.mNext.recv(extra_term);
-        }
-        return extra_term;
-    }
-
-    void Sh3Evaluator::astra_preprocess_mult_matrix_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2)
+/*    void Sh3Evaluator::astra_preprocess_mult_matrix_step2_0(CommPkg& comm, si64Matrix share1, si64Matrix share2)
     {
         i64 y = 0,y1 = mShareGen.getShare(),y2;
         for (u64 i=0; i<share1.size(); ++i)
@@ -83,28 +32,27 @@ namespace aby3
 
     }
     
-    void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_0(CommPkg& comm, si64 share1)
+    void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_0(CommPkg& comm, sb64 share1)
     {
         i64 y = 0,y1 = mShareGen.getShare(),y2;
         //for (u64 i=0; i<share1.size(); ++i)
           //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
-        y =  (share1.mShares[0] ^ share1.mShares[1] )
+        y =  (share1.mData[0] ^ share1.mData[1] );
         y2 = y - y1;
         comm.mNext.asyncSendCopy(y1);
         comm.mPrev.asyncSendCopy(y2);
 
     }
     
-    void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_1(CommPkg& comm, si64 share1, si64 share2)
+    void Sh3Evaluator::astra_binary_preprocess_mult_step2_0_1(CommPkg& comm, sb64 share1, sb64 share2)
     {
         i64 y = 0,y1 = mShareGen.getShare(),y2;
         //for (u64 i=0; i<share1.size(); ++i)
           //  y = y + (share1.mShares[0](i) + share1.mShares[1](i))*(share2.mShares[0](i) + share2.mShares[1](i));
-        y =  (share1.mShares[0]  ^ share1.mShares[1] ) * (share2.mShares[0] + share2.mShares[1])
+        y =  (share1.mData[0]  ^ share1.mData[1] ) * (share2.mData[0] + share2.mData[1]);
         y2 = y - y1;
         comm.mNext.asyncSendCopy(y1);
-        comm.mPrev.asyncSendCopy(y2);
-
+        comm.mPrev.asyncSendCopy(y2);  
     }
 
     i64 Sh3Evaluator::astra_preprocess_mult_matrix_step2(CommPkg& comm, int partyIdx)
@@ -158,7 +106,8 @@ namespace aby3
         }
         return beta_prod_share1+beta_prod_share2;
     }
-    i64 Sh3Evaluator::astra_online_bit_injection(CommPkg& comm, si64 b_Shares, si64 a_Shares, i64 alpha_b_share, i64 alpha_b_alpha_x_share, int partyIdx)
+
+    i64 Sh3Evaluator::astra_online_bit_injection(CommPkg& comm, sb64 b_Shares, si64 a_Shares, i64 alpha_b_share, i64 alpha_b_alpha_x_share, int partyIdx)
     {
         i64 result_share_1, result_share_2;
         if(partyIdx == 1)
@@ -186,6 +135,7 @@ namespace aby3
         }
         return result_share_1+result_share_2;
     }
+
     i64 Sh3Evaluator::astra_reveal_mult_matrix(CommPkg& comm, int partyIdx, i64 beta_prod, i64 alpha_prod_share, si64 bias)
     {
         i64 other_alpha_prod_share,other_bias_share;
@@ -208,6 +158,35 @@ namespace aby3
     }
 
 
+    i64 Sh3Evaluator::astra_bit2a_reveal(CommPkg& comm, int partyIdx, i64 beta_prod_share, i64 alpha_prod_share, i64 alpha_share, i64 beta_share)
+    {
+        i64 other_beta_prod_share, other_alpha_prod_share, other_beta_share, other_alpha_share;
+        if(partyIdx == 1)
+        {
+            comm.mNext.asyncSendCopy(alpha_prod_share);
+            comm.mNext.recv(other_alpha_prod_share);
+            comm.mNext.asyncSendCopy(beta_prod_share);
+            comm.mNext.recv(other_beta_prod_share);
+            comm.mNext.asyncSendCopy(alpha_share);
+            comm.mNext.recv(other_alpha_share);
+            comm.mNext.asyncSendCopy(beta_share);
+            comm.mNext.recv(other_beta_share);
+        }
+        else if(partyIdx == 2)
+        {
+            comm.mPrev.asyncSendCopy(alpha_prod_share);
+            comm.mPrev.recv(other_alpha_prod_share);
+            comm.mPrev.asyncSendCopy(beta_prod_share);
+            comm.mPrev.recv(other_beta_prod_share);
+            comm.mPrev.asyncSendCopy(alpha_share);
+            comm.mPrev.recv(other_alpha_share);
+            comm.mPrev.asyncSendCopy(beta_share);
+            comm.mPrev.recv(other_beta_share);
+        }
+        //oc::lout<<(beta_prod-(alpha_prod_share+other_alpha_prod_share))<<std::endl;
+        return (beta_share + other_beta_share + alpha_share + other_alpha_share - 2*(beta_prod_share + other_beta_prod_share - alpha_prod_share - other_alpha_prod_share);
+    }
+*/
     //void Sh3Evaluator::mul(
     //	CommPkg& comm,
     //	const si64Matrix& A,

@@ -15,18 +15,40 @@ namespace aby3
         void init(u64 partyIdx, block prevSeed, block nextSeed, u64 buffSize = 256) { mShareGen.init(prevSeed, nextSeed, buffSize); mPartyIdx = partyIdx; }
         void init(u64 partyIdx, CommPkg& comm, block seed, u64 buffSize = 256) { mShareGen.init(comm, seed, buffSize); mPartyIdx = partyIdx; }
         
-        si64 astra_preprocess_0(CommPkg& comm);
-        void astra_online_0(CommPkg& comm, i64 val, si64 s);
-        i64 astra_preprocess(CommPkg& comm, int partyNo);
-        i64 astra_online(CommPkg& comm, int partyNo);
-        i64 astra_reveal_1(CommPkg& comm, si64 s);
-        void astra_reveal_2(CommPkg& comm, si64 s);
-        void astra_preprocess_matrix_0(CommPkg& comm, si64Matrix& ret);
-        void astra_online_matrix_0(CommPkg& comm, i64Matrix m, si64Matrix shr);
-        void astra_preprocess_matrix(CommPkg& comm, int partyNo, i64Matrix& res);
-        void astra_online_matrix(CommPkg& comm, int partyNo, i64Matrix& res);
-        void astra_reveal_matrix_1(CommPkg& comm, si64Matrix& s, i64Matrix& dest);
-        void astra_reveal_matrix_2(CommPkg& comm, si64Matrix s);
+        si64 astra_share_preprocess_distributor(CommPkg& comm, int partyIdx);
+        i64 astra_share_preprocess_evaluator(CommPkg& comm, int partyIdx);
+        void astra_share_online_distributor(CommPkg& comm, i64 x, si64 alpha_x, int partyIdx);
+        i64 astra_share_online_evaluator(CommPkg& comm, int partyIdx);
+        i64 astra_share_reveal_receiver(CommPkg& comm, si64 share, int partyIdx);
+        void astra_share_reveal_sender(CommPkg& comm, si64 share, int partyIdx);
+        sb64 astra_binary_share_preprocess_distributor(CommPkg& comm, int partyIdx);
+        i64 astra_binary_share_preprocess_evaluator(CommPkg& comm, int partyIdx);
+        void astra_share_binary_online_distributor(CommPkg& comm, i64 x, sb64 alpha_b, int partyIdx);
+        i64 astra_binary_share_online_evaluator(CommPkg& comm, int partyIdx);
+        i64 astra_binary_share_reveal_receiver(CommPkg& comm, sb64 share, int partyIdx);
+        void astra_binary_share_reveal_sender(CommPkg& comm, sb64 share, int partyIdx);
+        void astra_share_matrix_preprocess_distributor(CommPkg& comm, si64Matrix& alpha_X, int partyIdx);
+        void astra_share_matrix_preprocess_evaluator(CommPkg& comm, i64Matrix& alpha_X_share, int partyIdx);
+        void astra_share_matrix_online_distributor(CommPkg& comm, i64Matrix X, si64Matrix alpha_X, int partyIdx);
+        void astra_share_matrix_online_evaluator(CommPkg& comm, i64Matrix& beta_X, int partyIdx);
+        void astra_share_matrix_reveal_receiver(CommPkg& comm, si64Matrix share, i64Matrix& actual_matrix, int partyIdx);
+        void astra_share_matrix_reveal_sender(CommPkg& comm, si64Matrix share, int partyIdx);
+        void astra_binary_share_matrix_preprocess_distributor(CommPkg& comm, sbMatrix& alpha_B, int partyIdx);
+        void astra_binary_share_matrix_preprocess_evaluator(CommPkg& comm, i64Matrix& alpha_B_share, int partyIdx);
+        void astra_binary_share_matrix_online_distributor(CommPkg& comm, i64Matrix B, sbMatrix alpha_B, int partyIdx);
+        void astra_binary_share_matrix_online_evaluator(CommPkg& comm, i64Matrix& beta_B, int partyIdx);
+        void astra_binary_share_matrix_reveal_receiver(CommPkg& comm, sbMatrix share, i64Matrix& actual_matrix, int partyIdx);
+        void astra_binary_share_matrix_reveal_sender(CommPkg& comm, si64Matrix share, int partyIdx);
+        si64 astra_additive_share_distributor(CommPkg& comm, i64 x, int partyIdx, bool value_given);
+        i64 astra_additive_share_evaluator(CommPkg& comm, int partyIdx);
+        void astra_additive_share_matrix_distributor(CommPkg& comm, i64Matrix X, si64Matrix& shared_X, int partyIdx, bool matrix_given);
+        void astra_additive_share_matrix_evaluator(CommPkg& comm, int partyIdx, i64Matrix& X_share);
+        sb64 astra_binary_additive_share_distributor(CommPkg& comm, i64 b, int partyIdx, bool value_given);
+        i64 astra_binary_additive_share_evaluator(CommPkg& comm, int partyIdx);
+        void astra_binary_additive_share_matrix_distributor(CommPkg& comm, i64Matrix B, sbMatrix& shared_B, int partyIdx, bool matrix_given);
+        void astra_binary_additive_share_matrix_evaluator(CommPkg& comm, int partyIdx, i64Matrix& B_share);
+        //si64 astra_bit2a_online_0(CommPkg& comm);
+        //si64 astra_bit2a_online(CommPkg& comm, i64 val, int partyIdx);
 
         si64 localInt(CommPkg& comm, i64 val);
         si64 remoteInt(CommPkg& comm);

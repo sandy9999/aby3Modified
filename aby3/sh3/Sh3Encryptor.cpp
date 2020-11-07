@@ -18,152 +18,569 @@ namespace aby3
 		comm.mPrev.recv(recv);
 	}
 
+  /*Consider P0, P1, P2 follow the astra sharing protocol. WLOG, let P0 be the distributor, and P1 and P2 the evaluators.
+  An astra arithmetic share of x is represented as: [[ beta_x, [alpha_x] ]] where
+    P0 holds alpha_x_1 and alpha_x_2
+    P1 holds alpha_x_1 and beta_x
+    P2 holds alpha_x_2 and beta_x
+  */
 
-	si64 Sh3Encryptor::astra_preprocess_0(CommPkg& comm)
+  //Astra sharing of a value Preprocess Phase begins
+	si64 Sh3Encryptor::astra_share_preprocess_distributor(CommPkg& comm, int partyIdx)
 	{
-        si64 ret;
-        ret[0] = mShareGen.getShare();
-        ret[1] = mShareGen.getShare();
-        comm.mNext.asyncSendCopy(ret[0]);
-        comm.mPrev.asyncSendCopy(ret[1]);
-        return ret;
+    if(partyIdx == 0)
+    {
+        si64 alpha_x;
+        alpha_x[0] = mShareGen.getShare();
+        alpha_x[1] = mShareGen.getShare();
+        comm.mNext.asyncSendCopy(alpha_x[0]);
+        comm.mPrev.asyncSendCopy(alpha_x[1]);
+        return alpha_x;
+    }
 	}
 	
-	si64 Sh3Encryptor::astra_binary_preprocess_0(CommPkg& comm)
+  i64 Sh3Encryptor::astra_share_preprocess_evaluator(CommPkg& comm, int partyIdx)
+  {
+      if(partyIdx == 1)
+      {
+          i64 alpha_x_1;
+          comm.mPrev.recv(alpha_x_1);
+          return alpha_x_1;
+      }
+      else if(partyIdx == 2)
+      {
+          i64 alpha_x_2;
+          comm.mNext.recv(alpha_x_2);
+          return alpha_x_2;
+      }
+  }
+  //Astra sharing of a value Preprocess Phase ends
+
+  //Astra sharing of a value Online Phase begins
+  void Sh3Encryptor::astra_share_online_distributor(CommPkg& comm, i64 x, si64 alpha_x, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      i64 beta_x = alpha_x[0] + alpha_x[1] + x;
+      comm.mNext.asyncSendCopy(beta_x);
+      comm.mPrev.asyncSendCopy(beta_x);
+    }
+  }
+
+  i64 Sh3Encryptor::astra_share_online_evaluator(CommPkg& comm, int partyIdx)
+  {
+      i64 beta_x;
+      if(partyIdx == 1)
+      {
+          comm.mPrev.recv(beta_x);
+      }
+      else if(partyIdx == 2)
+      {
+          comm.mNext.recv(beta_x);
+      }
+      return beta_x;
+  }
+  //Astra sharing of a value Online Phase ends
+
+  //Astra sharing of a value Reveal Phase begins
+  i64 Sh3Encryptor::astra_share_reveal_receiver(CommPkg& comm, si64 share, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      i64 other_share;
+      comm.mPrev.recv(other_share);
+      return (other_share - (share[0] + share[1]));
+    }
+    else if(partyIdx == 1)
+    {
+      i64 other_share;
+      comm.mPrev.recv(other_share);
+      return (share[1] - (other_share + share[0]));
+    }
+    else if(partyIdx == 2)
+    {
+      i64 other_share;
+      comm.mPrev.recv(other_share);
+      return (share[1] - (other_share + share[0]));
+    }
+  }
+
+  void Sh3Encryptor::astra_share_reveal_sender(CommPkg& comm, si64 share, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      comm.mNext.asyncSendCopy(share[1]);
+    }
+    else if(partyIdx == 1)
+    {
+      comm.mNext.asyncSendCopy(share[0]);
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mNext.asyncSendCopy(share[1]);
+    }
+  }
+  //Astra sharing of a value Reveal Phase ends
+
+  /*
+  An astra boolean share of x is represented as: [[ beta_b, [alpha_b]^B ]]^B where
+    P0 holds alpha_b_1 and alpha_b_2
+    P1 holds alpha_b_1 and beta_b
+    P2 holds alpha_b_2 and beta_b
+  */
+
+  //Astra binary sharing of a value Preprocessing Phase begins
+	sb64 Sh3Encryptor::astra_binary_share_preprocess_distributor(CommPkg& comm, int partyIdx)
 	{
-        si64 ret;
-        ret[0] = mShareGen.getBinaryShare();
-        ret[1] = mShareGen.getBinaryShare();
-        comm.mNext.asyncSendCopy(ret[0]);
-        comm.mPrev.asyncSendCopy(ret[1]);
-        return ret;
+    if(partyIdx == 0)
+    {
+        sb64 alpha_b;
+        alpha_b[0] = mShareGen.getBinaryShare();
+        alpha_b[1] = mShareGen.getBinaryShare();
+        comm.mNext.asyncSendCopy(alpha_b[0]);
+        comm.mPrev.asyncSendCopy(alpha_b[1]);
+        return alpha_b;
+    }
 	}
 	
+  i64 Sh3Encryptor::astra_binary_share_preprocess_evaluator(CommPkg& comm, int partyIdx)
+  {
+      if(partyIdx == 1)
+      {
+          i64 alpha_b_1;
+          comm.mPrev.recv(alpha_b_1);
+          return alpha_b_1;
+      }
+      else if(partyIdx == 2)
+      {
+          i64 alpha_b_2;
+          comm.mNext.recv(alpha_b_2);
+          return alpha_b_2;
+      }
+  }
+  //Astra binary sharing of a value Preprocessing Phase ends
 
-    void Sh3Encryptor::astra_online_0(CommPkg& comm, i64 val, si64 s)
+  //Astra binary sharing of a value Online Phase begins
+  void Sh3Encryptor::astra_share_binary_online_distributor(CommPkg& comm, i64 x, sb64 alpha_b, int partyIdx)
+  {
+    if(partyIdx == 0)
     {
-        i64 beta = s.mData[0] + s.mData[1] + val;
-        comm.mNext.asyncSendCopy(beta);
-        comm.mPrev.asyncSendCopy(beta);
+      i64 beta_b = alpha_b[0] ^ alpha_b[1] ^ x;
+      comm.mNext.asyncSendCopy(beta_b);
+      comm.mPrev.asyncSendCopy(beta_b);
     }
-	void Sh3Encryptor::astra_binary_online_0(CommPkg& comm, i64 val, si64 s)
-    {
-        i64 beta = s.mData[0] ^ s.mData[1] ^ val;
-        comm.mNext.asyncSendCopy(beta);
-        comm.mPrev.asyncSendCopy(beta);
-    }
+  }
 	
+  i64 Sh3Encryptor::astra_binary_share_online_evaluator(CommPkg& comm, int partyIdx)
+  {
+      i64 beta_b;
+      if(partyIdx == 1)
+      {
+          comm.mPrev.recv(beta_b);
+      }
+      else if(partyIdx == 2)
+      {
+          comm.mNext.recv(beta_b);
+      }
+      return beta_b;
+  }
+  //Astra binary sharing of a value Online Phase ends
 
-    i64 Sh3Encryptor::astra_preprocess(CommPkg& comm, int partyNo)
-    {
-        i64 alpha_share;
-        if(partyNo == 1)
-        {
-            comm.mPrev.recv(alpha_share);
-        }
-        else if(partyNo == 2)
-        {
-            comm.mNext.recv(alpha_share);
-        }
-        return alpha_share;
-    }
 
-    i64 Sh3Encryptor::astra_online(CommPkg& comm, int partyNo)
+  //Astra binary sharing of a value Reveal Phase begins
+  i64 Sh3Encryptor::astra_binary_share_reveal_receiver(CommPkg& comm, sb64 share, int partyIdx)
+  {
+    if(partyIdx == 0)
     {
+      i64 other_share;
+      comm.mPrev.recv(other_share);
+      return (other_share ^ (share[0] ^ share[1]));
+    }
+    else if(partyIdx == 1)
+    {
+      i64 other_share;
+      comm.mPrev.recv(other_share);
+      return (share[1] ^ (other_share ^ share[0]));
+    }
+    else if(partyIdx == 2)
+    {
+      i64 other_share;
+      comm.mPrev.recv(other_share);
+      return (share[1] ^ (other_share ^ share[0]));
+    }
+  }
 
-        i64 beta_share;
-        if(partyNo == 1)
-        {
-            comm.mPrev.recv(beta_share);
-        }
-        else if(partyNo == 2)
-        {
-            comm.mNext.recv(beta_share);
-        }
-        return beta_share;
+  void Sh3Encryptor::astra_binary_share_reveal_sender(CommPkg& comm, sb64 share, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      comm.mNext.asyncSendCopy(share[1]);
     }
+    else if(partyIdx == 1)
+    {
+      comm.mNext.asyncSendCopy(share[0]);
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mNext.asyncSendCopy(share[1]);
+    }
+  }
+  //Astra binary sharing of a value Reveal Phase ends
 
-    i64 Sh3Encryptor::astra_reveal_1(CommPkg& comm, si64 s)
-    {
-        i64 other_share;
-        comm.mNext.recv(other_share);
-        return s.mData[1] - (other_share + s.mData[0]);
-    }
-	
-    i64 Sh3Encryptor::astra_binary_reveal_1(CommPkg& comm, si64 s)
-    {
-        i64 other_share;
-        comm.mNext.recv(other_share);
-        return s.mData[1] ^ (other_share ^ s.mData[0]);
-    }
-	
-    
-    void Sh3Encryptor::astra_reveal_2(CommPkg& comm, si64 s)
-    {
-        comm.mPrev.asyncSendCopy(s.mData[0]);
-    }
-
-	void Sh3Encryptor::astra_preprocess_matrix_0(CommPkg& comm, si64Matrix & ret)
+  //Astra sharing of a matrix X Preprocess Phase begins
+	void Sh3Encryptor::astra_share_matrix_preprocess_distributor(CommPkg& comm, si64Matrix& alpha_X, int partyIdx)
 	{
-        for(u64 i=0; i< ret.mShares[0].size(); ++i)
-        {
-            ret.mShares[0](i) = mShareGen.getShare();
-            ret.mShares[1](i) = mShareGen.getShare();
-        }
-        comm.mNext.asyncSendCopy(ret.mShares[0].data(), ret.mShares[0].size());
-        comm.mPrev.asyncSendCopy(ret.mShares[1].data(), ret.mShares[1].size());
-	}
-
-    void Sh3Encryptor::astra_online_matrix_0(CommPkg& comm, i64Matrix m, si64Matrix shr)
+    if(partyIdx == 0)
     {
-        if (shr.cols() != static_cast<u64>(m.cols()) || shr.size() != static_cast<u64>(m.size()))
+        
+        for(u64 i=0; i< alpha_X.mShares[0].size(); ++i)
+        {
+            alpha_X.mShares[0](i) = mShareGen.getShare();
+            alpha_X.mShares[1](i) = mShareGen.getShare();
+        }
+        comm.mNext.asyncSendCopy(alpha_X.mShares[0].data(), alpha_X.mShares[0].size());
+        comm.mPrev.asyncSendCopy(alpha_X.mShares[1].data(), alpha_X.mShares[1].size());
+    }
+	}
+	
+  void Sh3Encryptor::astra_share_matrix_preprocess_evaluator(CommPkg& comm, i64Matrix& alpha_X_share, int partyIdx)
+  {
+      if(partyIdx == 1)
+      {
+          comm.mPrev.recv(alpha_X_share.data(), alpha_X_share.size()); //Receives matrix alpha_X_1
+      }
+      else if(partyIdx == 2)
+      {
+          comm.mNext.recv(alpha_X_share.data(), alpha_X_share.size()); //Receives matrix alpha_X_2
+      }
+  }
+  //Astra sharing of a matrix X Preprocess Phase ends
+
+  //Astra sharing of a matrix X Online Phase begins
+  void Sh3Encryptor::astra_share_matrix_online_distributor(CommPkg& comm, i64Matrix X, si64Matrix alpha_X, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      if (alpha_X.cols() != static_cast<u64>(X.cols()) || alpha_X.size() != static_cast<u64>(X.size()))
             throw std::runtime_error(LOCATION);
-        i64Matrix beta_matrix(m.rows(),m.cols());
-        for(u64 i = 0; i<m.size(); ++i)
-            beta_matrix(i) = m(i) + shr.mShares[0](i) + shr.mShares[1](i);
-
-        comm.mNext.asyncSendCopy(beta_matrix.data(), beta_matrix.size());
-        comm.mPrev.asyncSendCopy(beta_matrix.data(), beta_matrix.size());
+      i64Matrix beta_X;
+      beta_X.resizeLike(X);
+      for(u64 i = 0; i<X.size(); ++i)
+        beta_X(i) = X(i) + alpha_X.mShares[0](i) + alpha_X.mShares[1](i);
+      comm.mNext.asyncSendCopy(beta_X.data(), beta_X.size());
+      comm.mPrev.asyncSendCopy(beta_X.data(), beta_X.size());
     }
+  }
 
-    void Sh3Encryptor::astra_preprocess_matrix(CommPkg& comm, int partyNo, i64Matrix& res)
+  void Sh3Encryptor::astra_share_matrix_online_evaluator(CommPkg& comm, i64Matrix& beta_X, int partyIdx)
+  {
+      if(partyIdx == 1)
+      {
+          comm.mPrev.recv(beta_X.data(), beta_X.size());
+      }
+      else if(partyIdx == 2)
+      {
+          comm.mNext.recv(beta_X.data(), beta_X.size());
+      }
+  }
+  //Astra sharing of a matrix X Online Phase ends
+
+  //Astra sharing of a matrix X Reveal Phase begins
+  void Sh3Encryptor::astra_share_matrix_reveal_receiver(CommPkg& comm, si64Matrix share, i64Matrix& actual_matrix, int partyIdx)
+  {
+    if (actual_matrix.rows() != static_cast<i64>(share.rows()) || actual_matrix.cols() != static_cast<i64>(share.cols()))
+            throw std::runtime_error(LOCATION);
+    if(partyIdx == 0)
     {
-        if(partyNo == 1)
+      comm.mPrev.recv(actual_matrix.data(), actual_matrix.size());
+      for(u64 i=0; i<actual_matrix.size(); ++i)
+        actual_matrix(i) = actual_matrix(i) - (share.mShares[0](i) + share.mShares[1](i));
+    }
+    else if(partyIdx == 1)
+    {
+      comm.mPrev.recv(actual_matrix.data(), actual_matrix.size());
+      for(u64 i=0; i<actual_matrix.size(); ++i)
+        actual_matrix(i) = share.mShares[1](i) - (share.mShares[0](i) + actual_matrix(i));
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mPrev.recv(actual_matrix.data(), actual_matrix.size());
+      for(u64 i=0; i<actual_matrix.size(); ++i)
+        actual_matrix(i) = share.mShares[1](i) - (share.mShares[0](i) + actual_matrix(i));
+    }
+  }
+
+  void Sh3Encryptor::astra_share_matrix_reveal_sender(CommPkg& comm, si64Matrix share, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      comm.mNext.asyncSendCopy(share.mShares[1].data(), share.mShares[1].size());
+    }
+    else if(partyIdx == 1)
+    {
+      comm.mNext.asyncSendCopy(share.mShares[0].data(), share.mShares[0].size());
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mNext.asyncSendCopy(share.mShares[1].data(), share.mShares[1].size());
+    }
+  }
+  //Astra sharing of a matrix X Reveal Phase ends
+
+  //Astra binary sharing of a matrix B Preprocess Phase begins
+	void Sh3Encryptor::astra_binary_share_matrix_preprocess_distributor(CommPkg& comm, sbMatrix& alpha_B, int partyIdx)
+	{
+    if(partyIdx == 0)
+    {
+        
+        for(u64 i=0; i< alpha_B.mShares[0].size(); ++i)
         {
-            comm.mPrev.recv(res.data(), res.size());
+            alpha_B.mShares[0](i) = mShareGen.getBinaryShare();
+            alpha_B.mShares[1](i) = mShareGen.getBinaryShare();
         }
-        else if(partyNo == 2)
-        {
-            comm.mNext.recv(res.data(), res.size());
-        }
+        comm.mNext.asyncSendCopy(alpha_B.mShares[0].data(), alpha_B.mShares[0].size());
+        comm.mPrev.asyncSendCopy(alpha_B.mShares[1].data(), alpha_B.mShares[1].size());
+    }
+	}
+	
+  void Sh3Encryptor::astra_binary_share_matrix_preprocess_evaluator(CommPkg& comm, i64Matrix& alpha_B_share, int partyIdx)
+  {
+      if(partyIdx == 1)
+      {
+          comm.mPrev.recv(alpha_B_share.data(), alpha_B_share.size()); //Receives matrix alpha_B_1
+      }
+      else if(partyIdx == 2)
+      {
+          comm.mNext.recv(alpha_B_share.data(), alpha_B_share.size()); //Receives matrix alpha_B_2
+      }
+  }
+  //Astra binary sharing of a matrix B Preprocess Phase ends
+
+  //Astra binary sharing of a matrix B Online Phase begins
+  void Sh3Encryptor::astra_binary_share_matrix_online_distributor(CommPkg& comm, i64Matrix B, sbMatrix alpha_B, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      if (alpha_B.mShares[0].cols() != static_cast<u64>(B.cols()) || alpha_B.mShares[0].size() != static_cast<u64>(B.size()))
+            throw std::runtime_error(LOCATION);
+      i64Matrix beta_B;
+      beta_B.resizeLike(B);
+      for(u64 i = 0; i<B.size(); ++i)
+        beta_B(i) = B(i) ^ alpha_B.mShares[0](i) ^ alpha_B.mShares[1](i);
+      comm.mNext.asyncSendCopy(beta_B.data(), beta_B.size());
+      comm.mPrev.asyncSendCopy(beta_B.data(), beta_B.size());
+    }
+  }
+
+  void Sh3Encryptor::astra_binary_share_matrix_online_evaluator(CommPkg& comm, i64Matrix& beta_B, int partyIdx)
+  {
+      if(partyIdx == 1)
+      {
+          comm.mPrev.recv(beta_B.data(), beta_B.size());
+      }
+      else if(partyIdx == 2)
+      {
+          comm.mNext.recv(beta_B.data(), beta_B.size());
+      }
+  }
+  //Astra binary sharing of a matrix B Online Phase ends
+
+  //Astra binary sharing of a matrix B Reveal Phase begins
+  void Sh3Encryptor::astra_binary_share_matrix_reveal_receiver(CommPkg& comm, sbMatrix share, i64Matrix& actual_matrix, int partyIdx)
+  {
+    if (actual_matrix.rows() != static_cast<i64>(share.mShares[0].rows()) || actual_matrix.cols() != static_cast<i64>(share.mShares[0].cols()))
+            throw std::runtime_error(LOCATION);
+    if(partyIdx == 0)
+    {
+      comm.mPrev.recv(actual_matrix.data(), actual_matrix.size());
+      for(u64 i=0; i<actual_matrix.size(); ++i)
+        actual_matrix(i) = actual_matrix(i) ^ (share.mShares[0](i) ^ share.mShares[1](i));
+    }
+    else if(partyIdx == 1)
+    {
+      comm.mPrev.recv(actual_matrix.data(), actual_matrix.size());
+      for(u64 i=0; i<actual_matrix.size(); ++i)
+        actual_matrix(i) = share.mShares[1](i) ^ (share.mShares[0](i) ^ actual_matrix(i));
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mPrev.recv(actual_matrix.data(), actual_matrix.size());
+      for(u64 i=0; i<actual_matrix.size(); ++i)
+        actual_matrix(i) = share.mShares[1](i) ^ (share.mShares[0](i) ^ actual_matrix(i));
+    }
+  }
+
+  void Sh3Encryptor::astra_binary_share_matrix_reveal_sender(CommPkg& comm, si64Matrix share, int partyIdx)
+  {
+    if(partyIdx == 0)
+    {
+      comm.mNext.asyncSendCopy(share.mShares[1].data(), share.mShares[1].size());
+    }
+    else if(partyIdx == 1)
+    {
+      comm.mNext.asyncSendCopy(share.mShares[0].data(), share.mShares[0].size());
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mNext.asyncSendCopy(share.mShares[1].data(), share.mShares[1].size());
+    }
+  }
+  //Astra binary sharing of a matrix B Reveal Phase ends
+
+  //Additive sharing of value x begins
+  si64 Sh3Encryptor::astra_additive_share_distributor(CommPkg& comm, i64 x, int partyIdx, bool value_given)
+  {
+    if(partyIdx == 0)
+    {
+      si64 shared_x;
+      shared_x[0] = mShareGen.getShare();
+      if(value_given)
+        shared_x[1] = x - shared_x[0];
+      else
+        shared_x[1] = mShareGen.getShare();
+      comm.mNext.asyncSendCopy(shared_x[0]);
+      comm.mPrev.asyncSendCopy(shared_x[1]);
+      return shared_x;
+    }
+  }
+
+  i64 Sh3Encryptor::astra_additive_share_evaluator(CommPkg& comm, int partyIdx)
+  {
+    if(partyIdx == 1)
+    {
+      i64 x_1;
+      comm.mPrev.recv(x_1);
+      return x_1;
+    }
+    else if(partyIdx == 2)
+    {
+      i64 x_2;
+      comm.mNext.recv(x_2);
+      return x_2;
+    }
+  }
+  //Additive sharing of value x ends
+
+  //Additive sharing of matrix X begins
+  void Sh3Encryptor::astra_additive_share_matrix_distributor(CommPkg& comm, i64Matrix X, si64Matrix& shared_X, int partyIdx, bool matrix_given)
+  {
+    if(partyIdx == 0)
+    {
+      for(u64 i = 0; i<shared_X.size(); ++i)
+      {
+        shared_X.mShares[0](i) = mShareGen.getShare();
+        if(matrix_given)
+          shared_X.mShares[1](i) = X(i) - shared_X.mShares[0](i);
+        else
+          shared_X.mShares[1](i) = mShareGen.getShare();
+      }
+      comm.mNext.asyncSendCopy(shared_X.mShares[0].data(), shared_X.mShares[0].size());
+      comm.mPrev.asyncSendCopy(shared_X.mShares[1].data(), shared_X.mShares[1].size());
+    }
+  }
+
+  void Sh3Encryptor::astra_additive_share_matrix_evaluator(CommPkg& comm, int partyIdx, i64Matrix& X_share)
+  {
+    if(partyIdx == 1)
+    {
+      comm.mPrev.recv(X_share.data(), X_share.size());
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mNext.recv(X_share.data(), X_share.size());
+    }
+  }
+  //Additive sharing of matrix X ends
+
+
+  //Binary Additive sharing of value b begins
+  sb64 Sh3Encryptor::astra_binary_additive_share_distributor(CommPkg& comm, i64 b, int partyIdx, bool value_given)
+  {
+    if(partyIdx == 0)
+    {
+      sb64 shared_b;
+      shared_b[0] = mShareGen.getBinaryShare();
+      if(value_given)
+        shared_b[1] = b ^ shared_b[0];
+      else
+        shared_b[1] = mShareGen.getBinaryShare();
+      comm.mNext.asyncSendCopy(shared_b[0]);
+      comm.mPrev.asyncSendCopy(shared_b[1]);
+      return shared_b;
+    }
+  }
+
+  i64 Sh3Encryptor::astra_binary_additive_share_evaluator(CommPkg& comm, int partyIdx)
+  {
+    if(partyIdx == 1)
+    {
+      i64 b_1;
+      comm.mPrev.recv(b_1);
+      return b_1;
+    }
+    else if(partyIdx == 2)
+    {
+      i64 b_2;
+      comm.mNext.recv(b_2);
+      return b_2;
+    }
+  }
+  //Binary Additive sharing of value b ends
+
+  //Binary Additive sharing of matrix B begins
+  void Sh3Encryptor::astra_binary_additive_share_matrix_distributor(CommPkg& comm, i64Matrix B, sbMatrix& shared_B, int partyIdx, bool matrix_given)
+  {
+    if(partyIdx == 0)
+    {
+      for(u64 i = 0; i<B.size(); ++i)
+      {
+        shared_B.mShares[0](i) = mShareGen.getBinaryShare();
+        if(matrix_given)
+          shared_B.mShares[1](i) = B(i) ^ shared_B.mShares[0](i);
+        else
+          shared_B.mShares[1](i) = mShareGen.getBinaryShare();
+      }
+      comm.mNext.asyncSendCopy(shared_B.mShares[0].data(), shared_B.mShares[0].size());
+      comm.mPrev.asyncSendCopy(shared_B.mShares[1].data(), shared_B.mShares[1].size());
+    }
+  }
+
+  void Sh3Encryptor::astra_binary_additive_share_matrix_evaluator(CommPkg& comm, int partyIdx, i64Matrix& B_share)
+  {
+    if(partyIdx == 1)
+    {
+      comm.mPrev.recv(B_share.data(), B_share.size());
+    }
+    else if(partyIdx == 2)
+    {
+      comm.mNext.recv(B_share.data(), B_share.size());
+    }
+  }
+  //Additive sharing of matrix X ends
+    /*si64 Sh3Encryptor::astra_bit2a_online_0(CommPkg& comm)
+    {
+        si64 ret;
+        comm.mPrev.recv(ret.mData[0]);
+        comm.mNext.recv(ret.mData[1]);
     }
 
-    void Sh3Encryptor::astra_online_matrix(CommPkg& comm, int partyNo, i64Matrix& res)
+    si64 Sh3Encryptor::astra_bit2a_online(CommPkg& comm, i64 val, int partyIdx)
     {
-
-        if(partyNo == 1)
-        {
-            comm.mPrev.recv(res.data(), res.size());
-        }
-        else if(partyNo == 2)
-        {
-            comm.mNext.recv(res.data(), res.size());
-        }
-    }
-
-    void Sh3Encryptor::astra_reveal_matrix_1(CommPkg& comm, si64Matrix& s, i64Matrix& dest)
-    {
-        if (dest.rows() != static_cast<i64>(s.rows()) || dest.cols() != static_cast<i64>(s.cols()))
-                        throw std::runtime_error(LOCATION);
-        comm.mNext.recv(dest.data(), dest.size());
-        for(u64 i=0; i<dest.size(); ++i)
-            dest(i) = s.mShares[1](i) - (dest(i) + s.mShares[0](i));
-    }
-    
-    void Sh3Encryptor::astra_reveal_matrix_2(CommPkg& comm, si64Matrix s)
-    {
-        comm.mPrev.asyncSendCopy(s.mShares[0].data(), s.mShares[0].size());
-    }
+       si64 ret;
+       if(partyIdx == 1)
+       {
+          ret.mData[0] = mShareGen.getShare();
+          ret.mData[1] = ret.mData[0] + val;
+          comm.mPrev.asyncSendCopy(ret.mData[0]);
+       }
+       else if(partyIdx == 2)
+       {
+          ret.mData[0] = mShareGen.getShare();
+          ret.mData[1] = ret.mData[0] + val;
+          comm.mNext.asyncSendCopy(ret.mData[0]);
+       }
+       return ret;
+    }*/
 
 	si64 Sh3Encryptor::localInt(CommPkg & comm, i64 val)
 	{
@@ -174,39 +591,6 @@ namespace aby3
 		comm.mNext.asyncSendCopy(ret[0]);
 		comm.mPrev.recv(ret[1]);
 		oc::lout<<"Next party: "<<comm.mNext<<" Previous party: "<<comm.mPrev<<" val: "<<val<<" ret[0]: "<<ret[0]<<" ret[1]: "<<ret[1]<<std::endl;
-		return ret;
-	}
-
-	si64 Sh3Encryptor::localInt_modified(CommPkg & comm, i64 val)
-	{
-
-		si64 ret;
-		ret[0] = mShareGen.getShare() + val;	
-
-		comm.mNext.asyncSendCopy(ret[0]);
-		oc::lout<<"Local Int - Next party: "<<comm.mNext<<" Previous party: "<<comm.mPrev<<" val: "<<val<<" ret[0]: "<<ret[0]<<" ret[1]: "<<ret[1]<<std::endl;
-		return ret;
-	}
-
-	si64 Sh3Encryptor::remoteInt_modified(CommPkg & comm, int partyIndex)
-	{
-		si64 ret;
-		if(partyIndex == 1)
-		{
-			ret[0] = mShareGen.getShare();
-			comm.mNext.asyncSendCopy(ret[0]);
-			comm.mNext.recv(ret[1]);
-		}
-		else if(partyIndex == 2)
-		{
-			i64 g;
-			ret[0] = mShareGen.getShare();
-			comm.mPrev.asyncSendCopy(ret[0]);
-			comm.mPrev.recv(ret[1]);
-			comm.mNext.recv(g);
-			oc::lout<<"Extra value: "<<g<<std::endl;
-		}	
-		oc::lout<<"Remote Int - Next party: "<<comm.mNext<<" Previous party: "<<comm.mPrev<<" ret[0]: "<<ret[0]<<" ret[1]: "<<ret[1]<<std::endl;
 		return ret;
 	}
 
@@ -499,14 +883,6 @@ namespace aby3
 		return s + x[0] + x[1];
 	}
 
-	i64 Sh3Encryptor::reveal_modified(CommPkg & comm, const si64 & x)
-	{
-		i64 s;
-		comm.mNext.recv(s);
-		std::cout<<"s: "<<s<<" x[0]: "<<x[0]<<" x[1]: "<<x[1]<<" Revealed val: "<<s+x[0]+x[1]<<std::endl;
-		return s + x[0] + x[1];
-	}
-
 	i64 Sh3Encryptor::revealAll(CommPkg & comm, const si64 & x)
 	{
 		reveal(comm, (mPartyIdx + 2) % 3, x);
@@ -514,13 +890,6 @@ namespace aby3
 	}
 
 	void Sh3Encryptor::reveal(CommPkg & comm, u64 partyIdx, const si64 & x)
-	{
-		auto p = ((mPartyIdx + 2)) % 3;
-		if (p == partyIdx)
-			comm.mPrev.asyncSendCopy(x[0]);
-	}
-
-	void Sh3Encryptor::reveal_modified(CommPkg & comm, u64 partyIdx, const si64 & x)
 	{
 		auto p = ((mPartyIdx + 2)) % 3;
 		if (p == partyIdx)

@@ -642,18 +642,6 @@ void Sh3_Evaluator_mul_test()
 
             auto i0 = enc.localIntMatrix(rt, a, A);
             auto i1 = enc.localIntMatrix(rt, b, B);
-	    /*for(i64 m=0; m<10; m++)
-	    {
-		for(i64 n=0; n<10; n++)
-			ostreamLock(std::cout)<<"a["<<m<<"]["<<n<<"]: "<<a(m,n)<<" share 0 A["<<m<<"]["<<n<<"]: "<<A.mShares[0](m,n)<<" share 1 A["<<m<<"]["<<n<<"]: "<<A.mShares[1](m,n)<<std::endl;
-		ostreamLock(std::cout)<<std::endl;
-	    }
-	    for(i64 m=0; m<10; m++)
-	    {
-		for(i64 n=0; n<10; n++)
-			ostreamLock(std::cout)<<"b["<<m<<"]["<<n<<"]: "<<b(m,n)<<" share 0 B["<<m<<"]["<<n<<"]: "<<B.mShares[0](m,n)<<" share 1 B["<<m<<"]["<<n<<"]: "<<B.mShares[1](m,n)<<std::endl;
-		ostreamLock(std::cout)<<std::endl;
-	    }*/
 	    
 	    ostreamLock(std::cout)<<"a["<<1<<"]["<<1<<"]: "<<a(1,1)<<" share 0 A["<<1<<"]["<<1<<"]: "<<A.mShares[0](1,1)<<" share 1 A["<<1<<"]["<<1<<"]: "<<A.mShares[1](1,1)<<std::endl;
 		ostreamLock(std::cout)<<std::endl;
@@ -707,114 +695,7 @@ void Sh3_Evaluator_mul_test()
         throw std::runtime_error(LOCATION);
 }
 
-
-void Astra_linear_reg_inference_test()
-{
-
-    //throw UnitTestFail("known issue. " LOCATION);
-
-    IOService ios;
-    auto chl01 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "01").addChannel();
-    auto chl10 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "01").addChannel();
-    auto chl02 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "02").addChannel();
-    auto chl20 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "02").addChannel();
-    auto chl12 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "12").addChannel();
-    auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
-
-
-    int trials = 3;
-    CommPkg comms[3];
-    comms[0] = { chl02, chl01 };
-    comms[1] = { chl10, chl12 };
-    comms[2] = { chl21, chl20 };
-
-    Sh3Encryptor encs[3];
-    Sh3Evaluator evals[3];
-
-    encs[0].init(0, toBlock(0, 0), toBlock(0, 1));
-    encs[1].init(1, toBlock(0, 1), toBlock(0, 2));
-    encs[2].init(2, toBlock(0, 2), toBlock(0, 0));
-
-    evals[0].init(0, toBlock(0, 0), toBlock(1, 1));
-    evals[1].init(1, toBlock(1, 1), toBlock(2, 2));
-    evals[2].init(2, toBlock(2, 2), toBlock(0, 0));
-
-    bool failed = false;
-    auto t0 = std::thread([&]() {
-        auto& enc = encs[0];
-        auto& eval = evals[0];
-        auto& comm = comms[0];
-        
-        PRNG prng(ZeroBlock);
-
-            i64Matrix w(1, trials), z(1, trials);
-            i64 actual_wz, wz, b = 5;
-            //rand(w, prng);
-            for(u64 i=0; i<w.size(); ++i)
-                w(i) = i;
-            //rand(z, prng);
-            for(u64 i=0; i<z.size(); ++i)
-                z(i) = i+3;
-            ostreamLock(std::cout)<<"Vector w is : "<<w<<std::endl;
-            ostreamLock(std::cout)<<"Vector z is : "<<z<<std::endl;
-            ostreamLock(std::cout)<<"Bias b is : "<<b<<std::endl;
-
-            si64Matrix W(1, trials), Z(1, trials);
-            si64 WZ, B;
-
-            enc.astra_preprocess_matrix_0(comm, W);
-            enc.astra_preprocess_matrix_0(comm, Z);
-            B = enc.astra_preprocess_0(comm);
-            enc.astra_online_matrix_0(comm, w, W);
-            enc.astra_online_matrix_0(comm, z, Z);
-            enc.astra_online_0(comm, b, B);
-            eval.astra_preprocess_mult_step1_0(comm);
-            eval.astra_preprocess_mult_step2_0(comm, W, Z);
-            ostreamLock(std::cout)<<"Secret sharing of W for 0: "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
-            ostreamLock(std::cout)<<"Secret sharing of Z for 0: "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
-            ostreamLock(std::cout)<<"Secret sharing of B for 0: "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
-        });
-
-
-    auto rr = [&](int i)
-    {
-        auto& enc = encs[i];
-        auto& eval = evals[i];
-        auto& comm = comms[i];
-
-            si64Matrix W(1, trials), Z(1, trials);
-            si64 WZ, B;
-            i64 alpha_prod_share, extra_term, beta_prod, result;
-            enc.astra_preprocess_matrix(comm, i, W.mShares[0]);
-            enc.astra_preprocess_matrix(comm, i, Z.mShares[0]);
-            B.mData[0] = enc.astra_preprocess(comm, i); 
-            enc.astra_online_matrix(comm, i, W.mShares[1]);
-            enc.astra_online_matrix(comm, i, Z.mShares[1]);
-            B.mData[1] = enc.astra_online(comm, i);
-            alpha_prod_share = eval.astra_preprocess_mult_step1(comm, i);
-            extra_term = eval.astra_preprocess_mult_step2(comm, i);
-            beta_prod = eval.astra_online_mult_matrix(comm, W, Z, extra_term, alpha_prod_share, i);
-            result = eval.astra_reveal_mult_matrix(comm, i, beta_prod, alpha_prod_share, B);
-            ostreamLock(std::cout)<<"The answer is: "<<result<<std::endl;
-
-            ostreamLock(std::cout)<<"Secret sharing of W for "<<i<<": "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
-            ostreamLock(std::cout)<<"Secret sharing of Z for "<<i<<": "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
-            ostreamLock(std::cout)<<"Secret sharing of B for "<<i<<": "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
-            ostreamLock(std::cout)<<"alpha_wz share for "<<i<<": "<<alpha_prod_share<<std::endl;
-            ostreamLock(std::cout)<<"beta_wz for "<<i<<": "<<beta_prod<<std::endl;
-    };
-
-    auto t1 = std::thread(rr, 1);
-    auto t2 = std::thread(rr, 2);
-
-    t0.join();
-    t1.join();
-    t2.join();
-
-    if (failed)
-        throw std::runtime_error(LOCATION);
-}
-void Astra_bit_injection_test()
+/*void Astra_bit_injection_test()
 {
 
     //throw UnitTestFail("known issue. " LOCATION);
@@ -868,7 +749,7 @@ void Astra_bit_injection_test()
 
             //si64Matrix W(1, trials), Z(1, trials);
 	    // si64 WZ, B;
-            si64 b_Shares, a_Shares;
+            sb64 b_Shares;si64 a_Shares;
 
             b_Shares = enc.astra_binary_preprocess_0(comm);
             a_Shares = enc.astra_preprocess_0(comm);
@@ -893,7 +774,7 @@ void Astra_bit_injection_test()
         auto& comm = comms[i];
 
   
-	    si64 b_Shares, a_Shares;
+	    sb64 b_Shares;si64 a_Shares;
             i64 alpha_b_share, alpha_b_alpha_x_share, result;
 	    
 	    // alpha - Shares for both bit b and Integer x
@@ -915,204 +796,6 @@ void Astra_bit_injection_test()
             ostreamLock(std::cout)<<"Secret sharing of x for "<<i<<": "<<a_Shares.mData[0]<<" and "<< a_Shares.mData[1]<<std::endl;
             ostreamLock(std::cout)<<"alpha_b share for "<<i<<": "<<alpha_b_share<<std::endl;
             ostreamLock(std::cout)<<"alpha_b_alpha_x_share for "<<i<<": "<<alpha_b_alpha_x_share<<std::endl;
-    };
-
-    auto t1 = std::thread(rr, 1);
-    auto t2 = std::thread(rr, 2);
-
-    t0.join();
-    t1.join();
-    t2.join();
-
-    if (failed)
-        throw std::runtime_error(LOCATION);
-
-void Astra_bit2A_test()
-{
-
-	IOService ios;
-	auto chl01 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "01").addChannel();
-	auto chl10 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "01").addChannel();
-	auto chl02 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "02").addChannel();
-	auto chl20 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "02").addChannel();
-	auto chl12 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "12").addChannel();
-	auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
-
-
-	int trials = 10;
-	CommPkg comm[3];
-	comm[0] = { chl02, chl01 };
-	comm[1] = { chl10, chl12 };
-	comm[2] = { chl21, chl20 };
-
-	Sh3Encryptor enc[3];
-	enc[0].init(0, toBlock(0, 0), toBlock(1, 1));
-	enc[1].init(1, toBlock(1, 1), toBlock(2, 2));
-	enc[2].init(2, toBlock(2, 2), toBlock(0, 0));
-
-	bool failed = false;
-	auto t0 = std::thread([&]() {
-			auto i = 0;
-			auto& e = enc[i];
-			auto& c = comm[i];
-			PRNG prng(ZeroBlock);
-
-			i64 val;
-			sb64 bshr;
-      si64 alpha_bshr_complement_shr,beta_bshr_complement_shr;
-			val = 5;
-  		bshr = e.astra_binary_preprocess_0(c);
-	  	e.astra_binary_online_0(c, val, bshr);
-      alpha_bshr_complement = ~bshr;
-      alpha_bshr_complement_shr = e.astra_preprocess_0(c);
-      e.astra_online_0(c, alpha_bshr_complement, alpha_bshr_complement_shr);
-      beta_bshr_complement_shr = e.astra_bit2a_online_0(c);
-      eval.astra_preprocess_mult_step1_0(c);
-      eval.astra_preprocess_mult_step2_0(c, alpha_bshr_complement_shr, beta_bshr_complement_shr);
-
-			}
-
-	});
-
-
-	auto rr = [&](int i) {
-		auto& e = enc[i];
-		auto& c = comm[i];
-
-    i64 alpha_prod_alpha_beta_bshrs_complement_share, beta_prod_alpha_beta_bshrs_complement_share, extra_term, recovered_val;
-    sb64 bshr;
-		si64 alpha_bshr_complement_shr, beta_bshr_complement_shr;
-
-	  bshr.mData[0] = e.astra_binary_preprocess(c, i);
-		bshr.mData[1] = e.astra_binary_online(c, i);
-		alpha_bshr_complement_shr.mData[0] = e.astra_preprocess(c, i);
-    alpha_bshr_complement_shr.mData[1] = e.astra_preprocess{c, i);
-    beta_bshr_complement = ~bshr.mData[1];
-    beta_shr_complement_shr = e.astra_bit2a_online(c, beta_bshr_complement, i);
-    alpha_prod_alpha_beta_bshrs_complement_share = eval.astr_preprocess_mult_step1(c, i);
-    extra_term = astra_preprocess_mult_step2(c, i);
-    beta_prod_alpha_beta_bshrs_complement_share = astra_bit2a_online_mult(c, alpha_bshr_complement_shr, beta_bshr_complement_shr, extra_term, alpha_prod_alpha_beta_bshrs_complement_share, i);
-    recovered_val = eval.astra_bit2a_reveal(c, i, beta_prod_alpha_beta_bshrs_complement_share, alpha_prod_alpha_beta_bshrs_complement_share, alpha_bshr_complement_shr, beta_bshr_complement_shr);
-
-			/*if(i == 1)
-			{	
-                i64 recovered_val;
-			    recovered_val = e.astra_reveal_1(c, shrs[j]);
-                std::cout<<"Recovered value: "<<recovered_val<<std::endl;
-
-            }
-            else if(i == 2)
-            {
-                e.astra_reveal_2(c, shrs[j]);
-            }*/
-
-	};
-
-	auto t1 = std::thread(rr, 1);
-	auto t2 = std::thread(rr, 2);
-
-	t0.join();
-	t1.join();
-	t2.join();
-
-	if (failed)
-		throw std::runtime_error(LOCATION);
-}
-/*
-void Astra_linear_float_reg_inference_test()
-{
-
-    //throw UnitTestFail("known issue. " LOCATION);
-
-    IOService ios;
-    auto chl01 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "01").addChannel();
-    auto chl10 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "01").addChannel();
-    auto chl02 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "02").addChannel();
-    auto chl20 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "02").addChannel();
-    auto chl12 = Session(ios, "127.0.0.1:1313", SessionMode::Server, "12").addChannel();
-    auto chl21 = Session(ios, "127.0.0.1:1313", SessionMode::Client, "12").addChannel();
-
-
-    int trials = 3;
-    CommPkg comms[3];
-    comms[0] = { chl02, chl01 };
-    comms[1] = { chl10, chl12 };
-    comms[2] = { chl21, chl20 };
-
-    Sh3Encryptor encs[3];
-    Sh3Evaluator evals[3];
-
-    encs[0].init(0, toBlock(0, 0), toBlock(0, 1));
-    encs[1].init(1, toBlock(0, 1), toBlock(0, 2));
-    encs[2].init(2, toBlock(0, 2), toBlock(0, 0));
-
-    evals[0].init(0, toBlock(0, 0), toBlock(1, 1));
-    evals[1].init(1, toBlock(1, 1), toBlock(2, 2));
-    evals[2].init(2, toBlock(2, 2), toBlock(0, 0));
-
-    bool failed = false;
-    auto t0 = std::thread([&]() {
-        auto& enc = encs[0];
-        auto& eval = evals[0];
-        auto& comm = comms[0];
-        
-        PRNG prng(ZeroBlock);
-
-            f64Matrix<D8> w(1, trials), z(1, trials);
-            f64<D8> actual_wz, wz, b = 5;
-            //rand(w, prng);
-            for(u64 i=0; i<w.size(); ++i)
-                w(i) = (i>>8)/100.0;
-            //rand(z, prng);
-            for(u64 i=0; i<z.size(); ++i)
-                z(i) = ((i+3)>>8)/100.0;
-            ostreamLock(std::cout)<<"Vector w is : "<<w<<std::endl;
-            std::cout<<"Vector z is : "<<z<<std::endl;
-            std::cout<<"Bias b is : "<<b<<std::endl;
-
-            sf64Matrix<D8> W(1, trials), Z(1, trials);
-            sf64<D8> WZ, B;
-
-            enc.astra_preprocess_matrix_0(comm, W);
-            enc.astra_preprocess_matrix_0(comm, Z);
-            B = enc.astra_preprocess_0(comm);
-            enc.astra_online_matrix_0(comm, w, W);
-            enc.astra_online_matrix_0(comm, z, Z);
-            enc.astra_online_0(comm, b, B);
-            eval.astra_preprocess_mult_step1_0(comm);
-            eval.astra_preprocess_mult_step2_0(comm, W, Z);
-            //ostreamLock(std::cout)<<"Secret sharing of W for 0: "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
-            //ostreamLock(std::cout)<<"Secret sharing of Z for 0: "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
-            //ostreamLock(std::cout)<<"Secret sharing of B for 0: "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
-        });
-
-
-    auto rr = [&](int i)
-    {
-        auto& enc = encs[i];
-        auto& eval = evals[i];
-        auto& comm = comms[i];
-
-            f64Matrix<D8> W(1, trials), Z(1, trials);
-            sf64<D8> WZ, B;
-            i64 alpha_prod_share, extra_term, beta_prod, result;
-            enc.astra_preprocess_matrix(comm, i, W.mShares[0]);
-            enc.astra_preprocess_matrix(comm, i, Z.mShares[0]);
-            B.mData[0] = enc.astra_preprocess(comm, i); 
-            enc.astra_online_matrix(comm, i, W.mShares[1]);
-            enc.astra_online_matrix(comm, i, Z.mShares[1]);
-            B.mData[1] = enc.astra_online(comm, i);
-            alpha_prod_share = eval.astra_preprocess_mult_step1(comm, i);
-            extra_term = eval.astra_preprocess_mult_step2(comm, i);
-            beta_prod = eval.astra_online_mult_matrix(comm, W, Z, extra_term, alpha_prod_share, i);
-            result = eval.astra_reveal_mult_matrix(comm, i, beta_prod, alpha_prod_share, B);
-            ostreamLock(std::cout)<<"The answer is: "<<result<<std::endl;
-
-            //ostreamLock(std::cout)<<"Secret sharing of W for "<<i<<": "<<W.mShares[0]<<" and "<<W.mShares[1]<<std::endl;
-            //ostreamLock(std::cout)<<"Secret sharing of Z for "<<i<<": "<<Z.mShares[0]<<" and "<<Z.mShares[1]<<std::endl;
-            //ostreamLock(std::cout)<<"Secret sharing of B for "<<i<<": "<<B.mData[0]<<" and "<<B.mData[1]<<std::endl;
-            //ostreamLock(std::cout)<<"alpha_wz share for "<<i<<": "<<alpha_prod_share<<std::endl;
-            //ostreamLock(std::cout)<<"beta_wz for "<<i<<": "<<beta_prod<<std::endl;
     };
 
     auto t1 = std::thread(rr, 1);
