@@ -10,7 +10,7 @@ using namespace oc;
 
 //W is weight vector, X is x coordinates vector, b is bias
 //Aim: Compute W.X + b
-void astra_logistic_regression_inference(oc::CLP& cmd, i64Matrix W, i64Matrix X, i64 b, int no_of_cols)
+void astra_logistic_regression_inference(oc::CLP& cmd, i64Matrix W, i64Matrix X, i64 b, int no_of_cols, i64 a)
 {
 
 	IOService ios;
@@ -36,72 +36,209 @@ void astra_logistic_regression_inference(oc::CLP& cmd, i64Matrix W, i64Matrix X,
 			auto& enc = encs[i];
 			auto& comm = comms[i];
       
-      i64 bit1 = 0, bit2 = 0, revealed_val;
-      sb64 binary_shared_bit1, binary_shared_bit2, binary_shared_not_bit2, binary_shared_bit1_and_not_bit2;
+      i64 bit1 = 1, bit2 = 0, revealed_val;
+      sb64 binary_shared_bit1, binary_shared_bit2, binary_shared_not_bit2, binary_shared_c;//Let c = bit1.(not_bit2) in boolean sharing
+
+      si64 shared_a, shared_ca_1, shared_ca_2, shared_ca;
+
+      si64 shared_bit2, shared_bit2_1, shared_bit2_2;
+
+      si64 shared_sigmoid;
 
       //Generating Input Shares Preprocess
       binary_shared_bit1 = enc.astra_binary_share_preprocess_distributor(comm, 0);
       binary_shared_bit2 = enc.astra_binary_share_preprocess_distributor(comm, 0);
+      shared_a = enc.astra_share_preprocess_distributor(comm, 0);
 
       //Generating Input Shares Online
       enc.astra_binary_share_online_distributor(comm, bit1, binary_shared_bit1, 0);
       enc.astra_binary_share_online_distributor(comm, bit2, binary_shared_bit2, 0);
+      enc.astra_share_online_distributor(comm, a, shared_a, 0);
 
       //Generate shares of not_bit2
       binary_shared_not_bit2 = binary_shared_bit2;
 
-      //Preprocess phase
-      binary_shared_bit1_and_not_bit2 = enc.astra_binary_share_preprocess_distributor(comm, 0);
-      enc.astra_binary_additive_share_distributor(comm, (binary_shared_bit1[0] ^ binary_shared_not_bit2[0])&(binary_shared_not_bit2[0]^binary_shared_not_bit2[1]), 0, true);
+      //Preprocess phase of bit1 and not_bit2
+      binary_shared_c = enc.astra_binary_share_preprocess_distributor(comm, 0);
+      enc.astra_binary_additive_share_distributor(comm, (binary_shared_bit1[0] ^ binary_shared_bit1[1])&(binary_shared_not_bit2[0]^binary_shared_not_bit2[1]), 0, true);
 
       //Reveal actual value to check
-      enc.astra_binary_share_reveal_sender(comm, binary_shared_bit1_and_not_bit2, 0);
-      revealed_val = enc.astra_binary_share_reveal_receiver(comm, binary_shared_bit1_and_not_bit2, 0);
+      enc.astra_binary_share_reveal_sender(comm, binary_shared_c, 0);
+      revealed_val = enc.astra_binary_share_reveal_receiver(comm, binary_shared_c, 0);
       ostreamLock(std::cout)<<revealed_val<<std::endl;
 
+
+      //Now that have c, let's convert [[c]]^B [[a]] to [[ca]]
+      //Bit Injection Preprocess
+      enc.astra_additive_share_distributor(comm, (binary_shared_c[0]^binary_shared_c[1]), 0, true);
+      enc.astra_additive_share_distributor(comm, ((binary_shared_c[0]^binary_shared_c[1])*(shared_a[0] + shared_a[1])), 0, true);
+    
+      //Preprocess - Generate Astra shares of Bit Injection Local shares
+      shared_ca_1 = enc.astra_share_preprocess_evaluator_notP0(comm, 0, 1);
+      shared_ca_2 = enc.astra_share_preprocess_evaluator_notP0(comm, 0, 2);
+      
+      //Local addition of Astra shares to get [[ca]]
+      shared_ca[0] = shared_ca_1[0] + shared_ca_2[0];
+      shared_ca[1] = shared_ca_1[1] + shared_ca_2[1];
+
+      //Reveal actual value to check
+      enc.astra_share_reveal_sender(comm, shared_ca, 0);
+      revealed_val = enc.astra_share_reveal_receiver(comm, shared_ca, 0);
+      ostreamLock(std::cout)<<revealed_val<<std::endl;
+
+      //Bit2A preprocessing
+      enc.astra_additive_share_distributor(comm, binary_shared_bit2[0]^binary_shared_bit2[1], 0, true);
+      shared_bit2_1 = enc.astra_share_preprocess_evaluator_notP0(comm, 0, 1);
+      shared_bit2_2 = enc.astra_share_preprocess_evaluator_notP0(comm, 0, 2);
+      shared_bit2[0] = shared_bit2_1[0] + shared_bit2_2[0];
+      shared_bit2[1] = shared_bit2_1[1] + shared_bit2_2[1];
+
+      //Addition of local shares obtained from bit injection and bit2A to get final protocol
+      shared_sigmoid[0] = shared_ca[0] + shared_bit2[0];
+      shared_sigmoid[1] = shared_ca[1] + shared_bit2[1];
+
+      //Reveal actual value to check
+      enc.astra_share_reveal_sender(comm, shared_sigmoid, 0);
+      revealed_val = enc.astra_share_reveal_receiver(comm, shared_sigmoid, 0);
+      ostreamLock(std::cout)<<revealed_val<<std::endl;
+      
 	});
 
 	auto rr = [&](int i) {
 		auto& enc = encs[i];
 		auto& comm = comms[i];
     
-    i64 alpha_bit1_and_alpha_not_bit2_share, beta_bit1_and_not_bit2_1, beta_bit1_and_not_bit2_2, revealed_val;
-    sb64 binary_shared_bit1, binary_shared_bit2, binary_shared_not_bit2, binary_shared_bit1_and_not_bit2;
+    i64 binary_alpha_c_share, beta_c_1, beta_c_2, revealed_val;
+    sb64 binary_shared_bit1, binary_shared_bit2, binary_shared_not_bit2, binary_shared_c;
+
+    i64 alpha_c_share, alpha_c_times_alpha_a_share, ca_share, alpha_bit2_share;
+    si64 shared_a, shared_ca, shared_ca_1, shared_ca_2, alpha_ca_share;
+
+    i64 bit2_share;
+    si64 shared_bit2, shared_bit2_1, shared_bit2_2, alpha_bit2_arith_share;
+
+    si64 shared_sigmoid;
 
     //Generating Input Shares Preprocess
     binary_shared_bit1[0] = enc.astra_binary_share_preprocess_evaluator(comm, i);
     binary_shared_bit2[0] = enc.astra_binary_share_preprocess_evaluator(comm, i);
+    shared_a[0] = enc.astra_share_preprocess_evaluator(comm, i);
     
     //Generating Input Shares Online
     binary_shared_bit1[1] = enc.astra_binary_share_online_evaluator(comm, i);
     binary_shared_bit2[1] = enc.astra_binary_share_online_evaluator(comm, i);
+    shared_a[1] = enc.astra_share_online_evaluator(comm, i);
 
     //Generate shares of not_bit2
     binary_shared_not_bit2[0] = binary_shared_bit2[0];
     binary_shared_not_bit2[1] = 1^binary_shared_bit2[1];
 
-    //Preprocess phase
-    binary_shared_bit1_and_not_bit2[0] = enc.astra_binary_share_preprocess_evaluator(comm, i); 
-    alpha_bit1_and_alpha_not_bit2_share = enc.astra_binary_additive_share_evaluator(comm, i);
+    //Preprocess phase of boolean multiplication of bit1 and not_bit2
+    binary_shared_c[0] = enc.astra_binary_share_preprocess_evaluator(comm, i); 
+    binary_alpha_c_share = enc.astra_binary_additive_share_evaluator(comm, i);
 
-    //Online phase
+    //Online phase of boolean multiplication of bit1 and not_bit2
     if (i == 1)
     {
-        beta_bit1_and_not_bit2_1 = (binary_shared_bit1[1] & binary_shared_not_bit2[1]) ^ (binary_shared_bit1[1] & binary_shared_not_bit2[0]) ^ (binary_shared_not_bit2[1] & binary_shared_bit1[0]) ^ alpha_bit1_and_alpha_not_bit2_share ^ binary_shared_bit1_and_not_bit2[0];
-        comm.mNext.asyncSendCopy(beta_bit1_and_not_bit2_1);
-        comm.mNext.recv(beta_bit1_and_not_bit2_2);
+        beta_c_1 = (binary_shared_bit1[1] & binary_shared_not_bit2[1]) ^ (binary_shared_bit1[1] & binary_shared_not_bit2[0]) ^ (binary_shared_not_bit2[1] & binary_shared_bit1[0]) ^ binary_alpha_c_share ^ binary_shared_c[0];
+        comm.mNext.asyncSendCopy(beta_c_1);
+        comm.mNext.recv(beta_c_2);
     } 
     else if(i == 2)
     {
-
-        beta_bit1_and_not_bit2_2 = (binary_shared_bit1[1] & binary_shared_not_bit2[0]) ^ (binary_shared_not_bit2[1] & binary_shared_bit1[0]) ^ alpha_bit1_and_alpha_not_bit2_share ^ binary_shared_bit1_and_not_bit2[0];
-        comm.mPrev.asyncSendCopy(beta_bit1_and_not_bit2_2);
-        comm.mPrev.recv(beta_bit1_and_not_bit2_1);
+        beta_c_2 = (binary_shared_bit1[1] & binary_shared_not_bit2[0]) ^ (binary_shared_not_bit2[1] & binary_shared_bit1[0]) ^ binary_alpha_c_share ^ binary_shared_c[0];
+        comm.mPrev.asyncSendCopy(beta_c_2);
+        comm.mPrev.recv(beta_c_1);
     }
-    binary_shared_bit1_and_not_bit2[1] = beta_bit1_and_not_bit2_1 ^ beta_bit1_and_not_bit2_2;
+    binary_shared_c[1] = beta_c_1 ^ beta_c_2;
+  
+    //Reveal actual value to check
+    enc.astra_binary_share_reveal_sender(comm, binary_shared_c, i);
+    revealed_val = enc.astra_binary_share_reveal_receiver(comm, binary_shared_c, i);
+    ostreamLock(std::cout)<<revealed_val<<std::endl;
+    
+    //Bit Injection Preprocess
+    alpha_c_share = enc.astra_additive_share_evaluator(comm, i);
+    alpha_c_times_alpha_a_share = enc.astra_additive_share_evaluator(comm, i);
+    
+    //Bit Injection Online
+    if (i == 1)
+    {
+        ca_share = (binary_shared_c[1]*shared_a[1]) - (binary_shared_c[1]*shared_a[0]) + (alpha_c_share*shared_a[1]) - alpha_c_times_alpha_a_share - (2*binary_shared_c[1]*alpha_c_share*shared_a[1]) + (2*binary_shared_c[1]*alpha_c_times_alpha_a_share);
+    //Preprocess - Generate Astra shares of Bit Injection Local shares
+    alpha_ca_share = enc.astra_share_preprocess_distributor(comm, i);
+    shared_ca_2[0] = enc.astra_share_preprocess_evaluator(comm, i, 2);
 
-    enc.astra_binary_share_reveal_sender(comm, binary_shared_bit1_and_not_bit2, i);
-    revealed_val = enc.astra_binary_share_reveal_receiver(comm, binary_shared_bit1_and_not_bit2, i);
+    //Online - Generate Astra shares of Bit Injection Local shares
+    shared_ca_1[1] = enc.astra_share_online_distributor_notP0(comm, ca_share, alpha_ca_share, i);
+    shared_ca_1[0] = alpha_ca_share[0];
+    shared_ca_2[1] = enc.astra_share_online_evaluator(comm, i, 2);
+
+    }
+    else if(i == 2)
+    {
+        ca_share = 0 - (binary_shared_c[1]*shared_a[0]) + (alpha_c_share*shared_a[1]) - alpha_c_times_alpha_a_share - (2*binary_shared_c[1]*alpha_c_share*shared_a[1]) + (2*binary_shared_c[1]*alpha_c_times_alpha_a_share);
+    //Preprocess - Generate Astra shares of Bit Injection Local shares
+    alpha_ca_share = enc.astra_share_preprocess_distributor(comm, i);
+    shared_ca_1[0] = enc.astra_share_preprocess_evaluator(comm, i, 1);
+
+    //Online - Generate Astra shares of Bit Injection Local shares
+    shared_ca_2[1] = enc.astra_share_online_distributor_notP0(comm, ca_share, alpha_ca_share, i);
+    shared_ca_2[0] = alpha_ca_share[0];
+    shared_ca_1[1] = enc.astra_share_online_evaluator(comm, i, 1);
+
+    }
+    
+    //Local addition of Astra shares to get [[ca]]
+    shared_ca[0] = shared_ca_1[0] + shared_ca_2[0];
+    shared_ca[1] = shared_ca_1[1] + shared_ca_2[1];
+
+    //Reveal actual value to check
+    enc.astra_share_reveal_sender(comm, shared_ca, i);
+    revealed_val = enc.astra_share_reveal_receiver(comm, shared_ca, i);
+    ostreamLock(std::cout)<<revealed_val<<std::endl;
+    
+    //Bit2A Preprocessing
+    alpha_bit2_share = enc.astra_additive_share_evaluator(comm, i);
+
+    //Bit2A Online
+    if (i == 1)
+    {
+        bit2_share = binary_shared_bit2[1] + alpha_bit2_share - 2*binary_shared_bit2[1]*alpha_bit2_share;
+    //Preprocess - Generate Astra shares of Bit2A Local shares
+    alpha_bit2_arith_share = enc.astra_share_preprocess_distributor(comm, i);
+    shared_bit2_2[0] = enc.astra_share_preprocess_evaluator(comm, i, 2);
+
+    //Online - Generate Astra shares of Bit2A Local shares
+    shared_bit2_1[1] = enc.astra_share_online_distributor_notP0(comm, bit2_share, alpha_bit2_arith_share, i);
+    shared_bit2_1[0] = alpha_bit2_arith_share[0];
+    shared_bit2_2[1] = enc.astra_share_online_evaluator(comm, i, 2);
+
+    }
+    else if(i == 2)
+    {
+
+        bit2_share = alpha_bit2_share - 2*binary_shared_bit2[1]*alpha_bit2_share;
+    //Preprocess - Generate Astra shares of Bit2A Local shares
+    alpha_bit2_arith_share = enc.astra_share_preprocess_distributor(comm, i);
+    shared_bit2_1[0] = enc.astra_share_preprocess_evaluator(comm, i, 1);
+
+    //Online - Generate Astra shares of Bit2A Local shares
+    shared_bit2_2[1] = enc.astra_share_online_distributor_notP0(comm, bit2_share, alpha_bit2_arith_share, i);
+    shared_bit2_2[0] = alpha_bit2_arith_share[0];
+    shared_bit2_1[1] = enc.astra_share_online_evaluator(comm, i, 1);
+    
+    }
+    shared_bit2[0] = shared_bit2_1[0] + shared_bit2_2[0];
+    shared_bit2[1] = shared_bit2_1[1] + shared_bit2_2[1];
+
+    //Addition of local shares obtained from bit injection and bit2A to get final protocol
+    shared_sigmoid[0] = shared_ca[0] + shared_bit2[0];
+    shared_sigmoid[1] = shared_ca[1] + shared_bit2[1];
+    
+    //Reveal actual value to check
+    enc.astra_share_reveal_sender(comm, shared_sigmoid, i);
+    revealed_val = enc.astra_share_reveal_receiver(comm, shared_sigmoid, i);
     ostreamLock(std::cout)<<revealed_val<<std::endl;
 	};
 
@@ -125,6 +262,6 @@ int astra_logistic_regression_inference_sh(oc::CLP& cmd)
   ostreamLock(std::cout)<<"W: "<<W<<std::endl;
   ostreamLock(std::cout)<<"X: "<<X<<std::endl;
   ostreamLock(std::cout)<<"b: "<<b<<std::endl;
-  astra_logistic_regression_inference(cmd, W, X, b, 3);
+  astra_logistic_regression_inference(cmd, W, X, b, 3, 5);
   return 0;
 }

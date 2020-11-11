@@ -126,16 +126,16 @@ void astra_linear_regression_inference(oc::CLP& cmd, i64Matrix W, i64Matrix X, i
 
 int astra_linear_regression_inference_sh(oc::CLP& cmd)
 {
-  i64Matrix W(1, 3),X(1, 3);
+  i64Matrix W(1, 100),X(1, 100);
   i64 b = 5;
   for(u64 i=0; i<W.size(); ++i)
-    W(i) = i;
+    W(i) = 1;
 
   for(u64 i=0; i<X.size(); ++i)
-    X(i) = i+3;
-  ostreamLock(std::cout)<<"W: "<<W<<std::endl;
-  ostreamLock(std::cout)<<"X: "<<X<<std::endl;
-  ostreamLock(std::cout)<<"b: "<<b<<std::endl;
-  astra_linear_regression_inference(cmd, W, X, b, 3);
+    X(i) = 1;
+  ostreamLock(std::cout)<<"W: "<<W<<std::endl<<std::endl;
+  ostreamLock(std::cout)<<"X: "<<X<<std::endl<<std::endl;
+  ostreamLock(std::cout)<<"b: "<<b<<std::endl<<std::endl;
+  astra_linear_regression_inference(cmd, W, X, b, 100);
   return 0;
 }

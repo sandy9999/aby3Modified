@@ -37,21 +37,79 @@ namespace aby3
         comm.mPrev.asyncSendCopy(alpha_x[1]);
         return alpha_x;
     }
+    else if(partyIdx == 1)
+    {
+        si64 alpha_x;
+        alpha_x[0] = mShareGen.getShare();
+        alpha_x[1] = mShareGen.getShare();
+        comm.mPrev.asyncSendCopy(alpha_x[0]);//alpha_x_1
+        comm.mPrev.asyncSendCopy(alpha_x[1]);//alpha_x_2
+        comm.mNext.asyncSendCopy(alpha_x[1]);//alpha_x_2
+        return alpha_x;
+    }
+    else if(partyIdx == 2)
+    {
+        si64 alpha_x;
+        alpha_x[0] = mShareGen.getShare();
+        alpha_x[1] = mShareGen.getShare();
+        comm.mNext.asyncSendCopy(alpha_x[0]);//alpha_x_2
+        comm.mNext.asyncSendCopy(alpha_x[1]);//alpha_x_1
+        comm.mPrev.asyncSendCopy(alpha_x[1]);//alpha_x_1
+        return alpha_x;
+    }
 	}
-	
-  i64 Sh3Encryptor::astra_share_preprocess_evaluator(CommPkg& comm, int partyIdx)
+
+  i64 Sh3Encryptor::astra_share_preprocess_evaluator(CommPkg& comm, int partyIdx, int senderPartyIdx)
   {
       if(partyIdx == 1)
       {
-          i64 alpha_x_1;
-          comm.mPrev.recv(alpha_x_1);
-          return alpha_x_1;
+          if(senderPartyIdx == 0)
+          {
+            i64 alpha_x_1;
+            comm.mPrev.recv(alpha_x_1);
+            return alpha_x_1;
+          }
+          else if(senderPartyIdx == 2)
+          {
+            i64 alpha_x_1;
+            comm.mNext.recv(alpha_x_1);
+            return alpha_x_1;
+          }
       }
       else if(partyIdx == 2)
       {
-          i64 alpha_x_2;
-          comm.mNext.recv(alpha_x_2);
-          return alpha_x_2;
+          if(senderPartyIdx == 0)
+          {
+            i64 alpha_x_2;
+            comm.mNext.recv(alpha_x_2);
+            return alpha_x_2;
+          }
+          else if(senderPartyIdx == 1)
+          {
+            i64 alpha_x_2;
+            comm.mPrev.recv(alpha_x_2);
+            return alpha_x_2;
+          }
+      }
+  }
+
+  si64 Sh3Encryptor::astra_share_preprocess_evaluator_notP0(CommPkg& comm, int partyIdx, int senderPartyIdx)
+  {
+      
+      if(partyIdx == 0)
+      {
+        si64 alpha_x;
+        if(senderPartyIdx == 1)
+        {
+            comm.mNext.recv(alpha_x[0]);
+            comm.mNext.recv(alpha_x[1]);
+        }
+        else if(senderPartyIdx == 2)
+        {
+          comm.mPrev.recv(alpha_x[1]);
+          comm.mPrev.recv(alpha_x[0]);
+        }
+        return alpha_x;
       }
   }
   //Astra sharing of a value Preprocess Phase ends
@@ -67,16 +125,46 @@ namespace aby3
     }
   }
 
-  i64 Sh3Encryptor::astra_share_online_evaluator(CommPkg& comm, int partyIdx)
+  i64 Sh3Encryptor::astra_share_online_distributor_notP0(CommPkg& comm, i64 x, si64 alpha_x, int partyIdx)
+  {
+    if(partyIdx == 1)
+    {
+      i64 beta_x = alpha_x[0] + alpha_x[1] + x;
+      comm.mNext.asyncSendCopy(beta_x);
+      return beta_x;
+    }
+    else if(partyIdx == 2)
+    {
+      i64 beta_x = alpha_x[0] + alpha_x[1] + x;
+      comm.mPrev.asyncSendCopy(beta_x);
+      return beta_x;
+    }
+  }
+
+  i64 Sh3Encryptor::astra_share_online_evaluator(CommPkg& comm, int partyIdx, int senderPartyIdx)
   {
       i64 beta_x;
       if(partyIdx == 1)
       {
-          comm.mPrev.recv(beta_x);
+          if(senderPartyIdx == 0)
+          {
+            comm.mPrev.recv(beta_x);
+          }
+          else if(senderPartyIdx == 2)
+          {
+            comm.mNext.recv(beta_x);
+          }
       }
       else if(partyIdx == 2)
       {
-          comm.mNext.recv(beta_x);
+          if(senderPartyIdx == 0)
+          {
+            comm.mNext.recv(beta_x);
+          }
+          else if(senderPartyIdx == 1)
+          {
+            comm.mPrev.recv(beta_x);
+          }
       }
       return beta_x;
   }
@@ -135,8 +223,8 @@ namespace aby3
     if(partyIdx == 0)
     {
         sb64 alpha_b;
-        alpha_b[0] = mShareGen.getBinaryShare();
-        alpha_b[1] = mShareGen.getBinaryShare();
+        alpha_b[0] = (mShareGen.getBinaryShare())&1;
+        alpha_b[1] = (mShareGen.getBinaryShare())&1;
         comm.mNext.asyncSendCopy(alpha_b[0]);
         comm.mPrev.asyncSendCopy(alpha_b[1]);
         return alpha_b;
@@ -335,8 +423,8 @@ namespace aby3
         
         for(u64 i=0; i< alpha_B.mShares[0].size(); ++i)
         {
-            alpha_B.mShares[0](i) = mShareGen.getBinaryShare();
-            alpha_B.mShares[1](i) = mShareGen.getBinaryShare();
+            alpha_B.mShares[0](i) = (mShareGen.getBinaryShare())&1;
+            alpha_B.mShares[1](i) = (mShareGen.getBinaryShare())&1;
         }
         comm.mNext.asyncSendCopy(alpha_B.mShares[0].data(), alpha_B.mShares[0].size());
         comm.mPrev.asyncSendCopy(alpha_B.mShares[1].data(), alpha_B.mShares[1].size());
@@ -499,11 +587,11 @@ namespace aby3
     if(partyIdx == 0)
     {
       sb64 shared_b;
-      shared_b[0] = mShareGen.getBinaryShare();
+      shared_b[0] = (mShareGen.getBinaryShare())&1;
       if(value_given)
         shared_b[1] = b ^ shared_b[0];
       else
-        shared_b[1] = mShareGen.getBinaryShare();
+        shared_b[1] = (mShareGen.getBinaryShare())&1;
       comm.mNext.asyncSendCopy(shared_b[0]);
       comm.mPrev.asyncSendCopy(shared_b[1]);
       return shared_b;
@@ -534,11 +622,11 @@ namespace aby3
     {
       for(u64 i = 0; i<B.size(); ++i)
       {
-        shared_B.mShares[0](i) = mShareGen.getBinaryShare();
+        shared_B.mShares[0](i) = (mShareGen.getBinaryShare())&1;
         if(matrix_given)
           shared_B.mShares[1](i) = B(i) ^ shared_B.mShares[0](i);
         else
-          shared_B.mShares[1](i) = mShareGen.getBinaryShare();
+          shared_B.mShares[1](i) = (mShareGen.getBinaryShare())&1;
       }
       comm.mNext.asyncSendCopy(shared_B.mShares[0].data(), shared_B.mShares[0].size());
       comm.mPrev.asyncSendCopy(shared_B.mShares[1].data(), shared_B.mShares[1].size());
@@ -838,7 +926,7 @@ namespace aby3
 				memcpy(out.data(), m.data(), m.size());
 
 				for (u64 i = 0; i < dest.mShares[0].size(); ++i)
-				dest.mShares[0](i) = dest.mShares[0](i) ^ mShareGen.getBinaryShare();
+				dest.mShares[0](i) = dest.mShares[0](i) ^ ((mShareGen.getBinaryShare())&1);
 
 				comm.mNext.asyncSendCopy(dest.mShares[0].data(), dest.mShares[0].size());
 				auto fu = comm.mPrev.asyncRecv(dest.mShares[1].data(), dest.mShares[1].size());
@@ -852,7 +940,7 @@ namespace aby3
 	void Sh3Encryptor::remotePackedBinary(CommPkg & comm, sPackedBin & dest)
 	{
 		for (u64 i = 0; i < dest.mShares[0].size(); ++i)
-			dest.mShares[0](i) = mShareGen.getBinaryShare();
+			dest.mShares[0](i) = (mShareGen.getBinaryShare())&1;
 
 		comm.mNext.asyncSendCopy(dest.mShares[0].data(), dest.mShares[0].size());
 		comm.mPrev.recv(dest.mShares[1].data(), dest.mShares[1].size());
@@ -864,7 +952,7 @@ namespace aby3
 				{
 
 				for (u64 i = 0; i < dest.mShares[0].size(); ++i)
-				dest.mShares[0](i) = mShareGen.getBinaryShare();
+				dest.mShares[0](i) = (mShareGen.getBinaryShare())&1;
 
 				comm.mNext.asyncSendCopy(dest.mShares[0].data(), dest.mShares[0].size());
 				auto fu = comm.mPrev.asyncRecv(dest.mShares[1].data(), dest.mShares[1].size());

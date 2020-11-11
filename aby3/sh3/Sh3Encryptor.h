@@ -16,9 +16,11 @@ namespace aby3
         void init(u64 partyIdx, CommPkg& comm, block seed, u64 buffSize = 256) { mShareGen.init(comm, seed, buffSize); mPartyIdx = partyIdx; }
         
         si64 astra_share_preprocess_distributor(CommPkg& comm, int partyIdx);
-        i64 astra_share_preprocess_evaluator(CommPkg& comm, int partyIdx);
+        i64 astra_share_preprocess_evaluator(CommPkg& comm, int partyIdx, int senderPartyIdx=0);
+        si64 astra_share_preprocess_evaluator_notP0(CommPkg& comm, int partyIdx, int senderPartyIdx);
         void astra_share_online_distributor(CommPkg& comm, i64 x, si64 alpha_x, int partyIdx);
-        i64 astra_share_online_evaluator(CommPkg& comm, int partyIdx);
+        i64 astra_share_online_distributor_notP0(CommPkg& comm, i64 x, si64 alpha_x, int partyIdx);
+        i64 astra_share_online_evaluator(CommPkg& comm, int partyIdx, int senderPartyIdx = 0);
         i64 astra_share_reveal_receiver(CommPkg& comm, si64 share, int partyIdx);
         void astra_share_reveal_sender(CommPkg& comm, si64 share, int partyIdx);
         sb64 astra_binary_share_preprocess_distributor(CommPkg& comm, int partyIdx);
