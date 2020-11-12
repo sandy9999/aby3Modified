@@ -8,8 +8,7 @@
 #include <tests_cryptoTools/UnitTests.h>
 #include <aby3-ML/main-linear.h>
 #include <aby3-ML/main-logistic.h>
-#include <aby3-ML/main-astra-linear-pred.h>
-#include <aby3-ML/main-astra-logistic-pred.h>
+#include <aby3-ML/main-astra-pred.h>
 
 #include "cryptoTools/tests_cryptoTools/UnitTests.h"
 #include "cryptoTools/Crypto/PRNG.h"
@@ -63,7 +62,7 @@ int main(int argc, char** argv)
 			linear_main_3pc_sh(cmd);
 		}
 
-		if (cmd.isSet("astra-pred-linear"))
+		/*if (cmd.isSet("astra-pred-linear"))
 		{
 			set = true;
 		  astra_linear_regression_inference_sh(cmd);
@@ -72,7 +71,14 @@ int main(int argc, char** argv)
 		{
 			set = true;
 		  astra_logistic_regression_inference_sh(cmd);
+		}*/
+    
+		if (cmd.isSet("astra-pred"))
+		{
+			set = true;
+		  astra_linear_reg_inference_sh(cmd);
 		}
+
 		if (cmd.isSet("logistic-plain"))
 		{
 			set = true;
