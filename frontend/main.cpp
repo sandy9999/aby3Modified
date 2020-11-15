@@ -76,7 +76,7 @@ int main(int argc, char** argv)
 		if (cmd.isSet("astra-pred"))
 		{
 			set = true;
-		  astra_linear_reg_inference_sh(cmd);
+		  astra_pred_inference_sh(cmd);
 		}
 
 		if (cmd.isSet("logistic-plain"))

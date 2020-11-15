@@ -64,11 +64,14 @@ void Sh3_Encryptor_IO_test()
 			si64 sum{ { 0,0 } };
 			sb64 XOR{ {0,0} };
 			ostreamLock(std::cout)<<"Declarations of variables ends here\n";
+
+      //f64 aa = -0.5;
+      //ostreamLock(std::cout)<<"HII AA: "<<aa<<std::endl;
+
 			for (int i = 0; i < trials; ++i)
 			{
 			vals[i] = i * 325143121;
 			shrs[i] = e.localInt(c, vals[i]);
-			ostreamLock(std::cout)<<"Next party: "<<c.mNext<<" Previous party: "<<c.mPrev<<" Value: "<<vals[i]<<" Corresponding share 0: "<<shrs[i].mData[0]<<" Corresponding share 1: "<<shrs[i].mData[1]<<std::endl;
 			bshrs[i] = e.localBinary(c, vals[i]);
 			sum = sum + shrs[i];
 			XOR = XOR ^ bshrs[i];
@@ -84,7 +87,6 @@ void Sh3_Encryptor_IO_test()
 				for (u64 j = 0; j < v.size(); ++j)
 				{
 					if (v[j] != vals[i]) {
-						std::cout << "localInt[" << i << ", "<<j<<"] " << v[j] << " " << vals[i] << " failed" << std::endl;
 						failed = true;
 					}
 				}
@@ -299,7 +301,6 @@ void Sh3_Encryptor_asyncIO_test()
 				{
 					tasks[i][j].get();
 					if (v[j] != vals[i]) {
-						std::cout << "localInt[" << i << ", " << j << "] " << v[j] << " " << vals[i] << " failed" << std::endl;
 						failed = true;
 					}
 				}
