@@ -21,7 +21,6 @@ namespace aby3
 	class astraML
 	{
 	public:
-    //Sh3Encryptor encs[3];
     AstraSh3ShareGen shareGen;
 
     void key_channel_setup()
@@ -129,7 +128,6 @@ namespace aby3
       //Consider z = x.y
       auto t0 = std::thread([&]() {
           auto i = 0;
-          //auto& enc = encs[i];
           auto& comm = comms[i];
           
           si64 shared_x = get_allocated_share(x, 0);
@@ -140,16 +138,17 @@ namespace aby3
           i64 alpha_z_1 = shareGen.getShare(0, 1, -1, 0), alpha_z_2 = shareGen.getShare(0, 2, -1, 0);
           i64 alpha_x_alpha_y_1 = shareGen.getShare(0, 1, -1, 0), alpha_x_alpha_y_2 = (shared_x[0]+shared_x[1])*(shared_y[0] + shared_y[1]) - alpha_x_alpha_y_1;
           comm.mPrev.asyncSendCopy(alpha_x_alpha_y_2);
-
+          
+          //Setting value of share of final result
           shared_z[0] = alpha_z_1;
           shared_z[1] = alpha_z_2;
-
+          
+          //Setting alpha values of share to be returned
           z.alpha_1 = shared_z[0];
           z.alpha_2 = shared_z[1];
       });
 
       auto rr = [&](int i) {
-        //auto& enc = encs[i];
         auto& comm = comms[i];
         
         si64 shared_x = get_allocated_share(x, i);
@@ -179,9 +178,12 @@ namespace aby3
             comm.mPrev.asyncSendCopy(beta_z_2);
             comm.mPrev.recv(beta_z_1);
         }
+        
+        //Setting value of share of final result
         shared_z[1] = beta_z_1 + beta_z_2;
         shared_z[0] = alpha_z_share;
-
+  
+        //Setting beta value of share to be returned
         z.beta = shared_z[1];
   	};
   
@@ -201,7 +203,6 @@ namespace aby3
       //Consider z = x.y
       auto t0 = std::thread([&]() {
           auto i = 0;
-          //auto& enc = encs[i];
           auto& comm = comms[i];
           
           si64Matrix shared_x(x.size(), x[0].size()), shared_y(y.size(), y[0].size());
@@ -219,16 +220,17 @@ namespace aby3
           i64 alpha_x_alpha_y_1 = shareGen.getShare(0, 1, -1, 0);
           alpha_x_alpha_y_2-=alpha_x_alpha_y_1;
           comm.mPrev.asyncSendCopy(alpha_x_alpha_y_2);
-
+          
+          //Setting value of share of final result
           shared_z[0] = alpha_z_1;
           shared_z[1] = alpha_z_2;
-
+          
+          //Setting alpha values of share to be returned
           z.alpha_1 = shared_z[0];
           z.alpha_2 = shared_z[1];
       });
 
       auto rr = [&](int i) {
-        //auto& enc = encs[i];
         auto& comm = comms[i];
         
         si64Matrix shared_x(x.size(), x[0].size()), shared_y(y.size(), y[0].size());
@@ -261,9 +263,12 @@ namespace aby3
             comm.mPrev.asyncSendCopy(beta_z_2);
             comm.mPrev.recv(beta_z_1);
         }
+
+        //Setting value of share of final result
         shared_z[1] = beta_z_1 + beta_z_2;
         shared_z[0] = alpha_z_share;
-
+        
+        //Setting beta value of share to be returned
         z.beta = shared_z[1];
   	};
   
@@ -283,7 +288,6 @@ namespace aby3
       //Consider z = x.y
       auto t0 = std::thread([&]() {
           auto i = 0;
-          //auto& enc = encs[i];
           auto& comm = comms[i];
           
           sb64 shared_x = get_allocated_share(x, 0);
@@ -294,16 +298,17 @@ namespace aby3
           i64 alpha_z_1 = shareGen.getShare(0, 1, -1, 0, 1), alpha_z_2 = shareGen.getShare(0, 2, -1, 0, 1);
           i64 alpha_x_alpha_y_1 = shareGen.getShare(0, 1, -1, 0, 1), alpha_x_alpha_y_2 = (shared_x[0]^shared_x[1])&(shared_y[0] ^ shared_y[1]) ^ alpha_x_alpha_y_1;
           comm.mPrev.asyncSendCopy(alpha_x_alpha_y_2);
-
+          
+          //Setting value of share of final result
           shared_z[0] = alpha_z_1;
           shared_z[1] = alpha_z_2;
-
+          
+          //Setting alpha values of share to be returned
           z.alpha_1 = shared_z[0];
           z.alpha_2 = shared_z[1];
       });
 
       auto rr = [&](int i) {
-        //auto& enc = encs[i];
         auto& comm = comms[i];
         
         sb64 shared_x = get_allocated_share(x, i);
@@ -333,9 +338,12 @@ namespace aby3
             comm.mPrev.asyncSendCopy(beta_z_2);
             comm.mPrev.recv(beta_z_1);
         }
+
+        //Setting value of share of final result
         shared_z[1] = beta_z_1 ^ beta_z_2;
         shared_z[0] = alpha_z_share;
-
+        
+        //Setting beta value of share to be returned
         z.beta = shared_z[1];
   	};
   
@@ -348,6 +356,7 @@ namespace aby3
     return z;
 
     }
+
     share_value local_add(share_value x, share_value y)
     {
         share_value z;
@@ -411,9 +420,11 @@ namespace aby3
               i64 alpha_cx_1_1 = shareGen.getShare(0, 1, -1, 0), alpha_cx_1_2 = shareGen.getShare(0, 1, 2, 0);
               i64 alpha_cx_2_1 = shareGen.getShare(0, 1, 2, 0), alpha_cx_2_2 = shareGen.getShare(0, 2, -1, 0);
 
+              //Setting value of share of final result
               shared_z[0] = alpha_cx_1_1 + alpha_cx_2_1;
               shared_z[1] = alpha_cx_1_2 + alpha_cx_2_2;
 
+              //Setting alpha values of share to be returned
               z.alpha_1 = shared_z[0];
               z.alpha_2 = shared_z[1];
 
@@ -455,7 +466,8 @@ namespace aby3
                 i64 beta_cx_2;
                 comm.mNext.asyncSendCopy(beta_cx_1);
                 comm.mNext.recv(beta_cx_2);
-
+                
+                //Setting value of share of final result for Party 1
                 shared_z[1] = beta_cx_1 + beta_cx_2;
                 shared_z[0] = alpha_cx_1_1 + alpha_cx_2_1;
             } 
@@ -473,11 +485,13 @@ namespace aby3
                 i64 beta_cx_1;
                 comm.mPrev.recv(beta_cx_1);
                 comm.mPrev.asyncSendCopy(beta_cx_2);
-
+                
+                //Setting value of share of final result for Party 2
                 shared_z[1] = beta_cx_1 + beta_cx_2;
                 shared_z[0] = alpha_cx_1_2 + alpha_cx_2_2;
             }
             
+            //Setting beta value of share to be returned
             z.beta = shared_z[1];
 
         };
@@ -498,7 +512,6 @@ namespace aby3
           //Consider z = x.y
           auto t0 = std::thread([&]() {
               auto i = 0;
-              //auto& enc = encs[i];
               auto& comm = comms[i];
               
               sb64 shared_c = get_allocated_share(c, 0);
@@ -512,9 +525,11 @@ namespace aby3
               i64 alpha_cx_1_1 = shareGen.getShare(0, 1, -1, 0), alpha_cx_1_2 = shareGen.getShare(0, 1, 2, 0);
               i64 alpha_cx_2_1 = shareGen.getShare(0, 1, 2, 0), alpha_cx_2_2 = shareGen.getShare(0, 2, -1, 0);
 
+              //Setting value of share of final result
               shared_z[0] = alpha_cx_1_1 + alpha_cx_2_1;
               shared_z[1] = alpha_cx_1_2 + alpha_cx_2_2;
 
+              //Setting alpha values of share to be returned
               z.alpha_1 = shared_z[0];
               z.alpha_2 = shared_z[1];
 
@@ -550,7 +565,8 @@ namespace aby3
                 i64 beta_c_2;
                 comm.mNext.asyncSendCopy(beta_c_1);
                 comm.mNext.recv(beta_c_2);
-
+                
+                //Setting value of share of final result for Party 1
                 shared_z[1] = beta_c_1 + beta_c_2;
                 shared_z[0] = alpha_c_1_1 + alpha_c_2_1;
             } 
@@ -568,11 +584,13 @@ namespace aby3
                 i64 beta_c_1;
                 comm.mPrev.recv(beta_c_1);
                 comm.mPrev.asyncSendCopy(beta_c_2);
-
+                
+                //Setting value of share of final result for Party 2
                 shared_z[1] = beta_c_1 + beta_c_2;
                 shared_z[0] = alpha_c_1_2 + alpha_c_2_2;
             }
             
+            //Setting beta value of share to be returned
             z.beta = shared_z[1];
 
         };

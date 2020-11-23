@@ -42,6 +42,8 @@ share_value astra_linear_reg_inference(oc::CLP& cmd, vector<vector<i64>> W, vect
 
 }
 
+//W is weight vector, X is coordinates vector, b is bas
+//Aim: Compute sigmoid(W.X + b)
 share_value astra_logistic_reg_inference(oc::CLP& cmd, vector<vector<i64>> W, vector<vector<i64>> X, i64 b)
 {
   share_value shared_W_dot_X_plus_b = astra_linear_reg_inference(cmd, W, X, b);
