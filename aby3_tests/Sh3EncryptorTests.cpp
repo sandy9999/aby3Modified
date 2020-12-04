@@ -65,8 +65,6 @@ void Sh3_Encryptor_IO_test()
 			sb64 XOR{ {0,0} };
 			ostreamLock(std::cout)<<"Declarations of variables ends here\n";
 
-      //f64 aa = -0.5;
-      //ostreamLock(std::cout)<<"HII AA: "<<aa<<std::endl;
 
 			for (int i = 0; i < trials; ++i)
 			{
