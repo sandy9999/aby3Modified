@@ -39,6 +39,17 @@ namespace aby3
       return ret;
     }
 
+    share_value generate_shares(f64<D16> x)
+    {
+      share_value ret;
+      ret.alpha_1 = shareGen.getShare(0, 1, -1, 0);
+      shareGen.getShare(0, 1, -1, 1);
+      ret.alpha_2 = shareGen.getShare(0, 2, -1, 0);
+      shareGen.getShare(0, 2, -1, 2);
+      ret.beta = x.mValue + ret.alpha_1 + ret.alpha_2;
+      return ret;
+    }
+
     bool_share_value generate_bool_shares(i64 x)
     {
       bool_share_value ret;
@@ -71,6 +82,27 @@ namespace aby3
       return ret;
     }
     
+    std::vector<std::vector<share_value>> generate_shares(std::vector<std::vector<f64<D16>>> x)
+    {
+      std::vector<std::vector<share_value>> ret;
+      for(u64 i=0; i<x.size(); ++i)
+      {
+        std::vector<share_value> row;
+        for(u64 j=0; j<x[0].size(); ++j)
+        {
+          share_value val;
+          val.alpha_1 = shareGen.getShare(0, 1, -1, 0);
+          shareGen.getShare(0, 1, -1, 1);
+          val.alpha_2 = shareGen.getShare(0, 2, -1, 0);
+          shareGen.getShare(0, 2, -1, 2);
+          val.beta = x[i][j].mValue + val.alpha_1 + val.alpha_2;
+          row.push_back(val);
+        }
+        ret.push_back(row);
+      }
+      return ret;
+    }
+
     si64 get_allocated_share(share_value x, int partyIdx)
     {
         si64 ret;
@@ -199,6 +231,9 @@ namespace aby3
     
     share_value dot_product(std::vector<std::vector<share_value>> x, std::vector<std::vector<share_value>> y, CommPkg comms[3])
     {
+      std::chrono::time_point<std::chrono::system_clock>
+        vectorDotProductStop,
+        vectorDotProductStart = std::chrono::system_clock::now();
       share_value z;
       //Consider z = x.y
       auto t0 = std::thread([&]() {
@@ -226,8 +261,8 @@ namespace aby3
           shared_z[1] = alpha_z_2;
           
           //Setting alpha values of share to be returned
-          z.alpha_1 = shared_z[0];
-          z.alpha_2 = shared_z[1];
+          z.alpha_1 = shared_z[0]>>16;
+          z.alpha_2 = shared_z[1]>>16;
       });
 
       auto rr = [&](int i) {
@@ -269,21 +304,27 @@ namespace aby3
         shared_z[0] = alpha_z_share;
         
         //Setting beta value of share to be returned
-        z.beta = shared_z[1];
+        z.beta = shared_z[1]>>16;
   	};
-  
 	  auto t1 = std::thread(rr, 1);
   	auto t2 = std::thread(rr, 2);
   
 	  t0.join();
   	t1.join();
   	t2.join();
+    
+    vectorDotProductStop = std::chrono::system_clock::now();
+
+    auto vectorDotProductSeconds = std::chrono::duration_cast<std::chrono::milliseconds>(vectorDotProductStop - vectorDotProductStart).count() / 1000.0;
+    oc::lout<<"Time for Vector Dot Product in seconds: "<<vectorDotProductSeconds<<std::endl;
+
     return z;
 
     }
     
     bool_share_value bit_multiplication(bool_share_value x, bool_share_value y, CommPkg comms[3])
     {
+
       bool_share_value z;
       //Consider z = x.y
       auto t0 = std::thread([&]() {
@@ -359,11 +400,35 @@ namespace aby3
 
     share_value local_add(share_value x, share_value y)
     {
+        
+        std::chrono::time_point<std::chrono::system_clock>
+          localAddStop,
+          localAddStart = std::chrono::system_clock::now();
+
         share_value z;
         z.alpha_1 = x.alpha_1 + y.alpha_1;
         z.alpha_2 = x.alpha_2 + y.alpha_2;
         z.beta = x.beta + y.beta;
 
+        localAddStop = std::chrono::system_clock::now();
+        auto localAddSeconds = std::chrono::duration_cast<std::chrono::milliseconds>(localAddStop - localAddStart).count() / 1000.0;
+        oc::lout<<"Time for Local Addition in seconds: "<<localAddSeconds<<std::endl;
+        return z;
+    }
+
+    share_value local_subtract(share_value x, share_value y)
+    {
+        std::chrono::time_point<std::chrono::system_clock>
+          localSubtractStop,
+          localSubtractStart = std::chrono::system_clock::now();
+        share_value z;
+        z.alpha_1 = x.alpha_1 - y.alpha_1;
+        z.alpha_2 = x.alpha_2 - y.alpha_2;
+        z.beta = x.beta - y.beta;
+
+        localSubtractStop = std::chrono::system_clock::now();
+        auto localSubtractSeconds = std::chrono::duration_cast<std::chrono::milliseconds>(localSubtractStop - localSubtractStart).count() / 1000.0;
+        oc::lout<<"Time for Local Subtraction in seconds: "<<localSubtractSeconds<<std::endl;
         return z;
     }
     
@@ -373,6 +438,15 @@ namespace aby3
         z.alpha_1 = x.alpha_1;
         z.alpha_2 = x.alpha_2;
         z.beta = x.beta + y;
+        return z;
+    }
+
+    share_value add_const(share_value x, f64<D16> y)
+    {
+        share_value z;
+        z.alpha_1 = x.alpha_1;
+        z.alpha_2 = x.alpha_2;
+        z.beta = x.beta + y.mValue;
         return z;
     }
 
@@ -399,6 +473,10 @@ namespace aby3
     share_value bit_injection(bool_share_value c, share_value x, CommPkg comms[3])
     {
         
+          std::chrono::time_point<std::chrono::system_clock>
+            bitInjectionStop,
+            bitInjectionStart = std::chrono::system_clock::now();
+
           share_value z;
           //Consider z = x.y
           auto t0 = std::thread([&]() {
@@ -502,6 +580,10 @@ namespace aby3
         t0.join();
         t1.join();
         t2.join();
+        
+        bitInjectionStop = std::chrono::system_clock::now();
+        auto bitInjectionSeconds = std::chrono::duration_cast<std::chrono::milliseconds>(bitInjectionStop - bitInjectionStart).count() / 1000.0;
+        oc::lout<<"Time for Bit Injection in seconds: "<<bitInjectionSeconds<<std::endl;
         return z;
     }
 
