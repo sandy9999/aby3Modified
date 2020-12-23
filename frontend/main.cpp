@@ -78,7 +78,6 @@ int main(int argc, char** argv)
 			set = true;
 		  astra_pred_inference_sh(cmd);
 		}
-
 		if (cmd.isSet("logistic-plain"))
 		{
 			set = true;

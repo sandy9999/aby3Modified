@@ -1,157 +1,215 @@
 #include "main-astra-pred.h"
 #include "astraML.h"
 #include <cryptoTools/Common/CLP.h>
+#include <cryptoTools/Network/IOService.h>
+
+#include "aby3/sh3/Sh3Runtime.h"
+#include "aby3/sh3/Sh3Types.h"
+#include "aby3/sh3/Sh3FixedPoint.h"
 
 using namespace aby3;
 using namespace std;
 using namespace oc;
 
-//W is weight vector, X is x coordinates vector, b is bias
-//Aim: Compute W.X + b
-share_value astra_linear_reg_inference(oc::CLP& cmd, vector<vector<share_value>> shared_W, vector<vector<share_value>> shared_X, share_value shared_b, CommPkg comms[3], astraML& a)
+//const Decimal Dec(Decimal::D8);
+
+int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, Session& chlPrev, Session& chlNext, bool logistic)
 {
-  //f64<D16> val1 = 5.3;
-  //share_value share_5 = a.generate_shares(val1);
+  PRNG prng(toBlock(1));
 
-  //f64<D16> val2 = 7.5;
-  //share_value share_7 = a.generate_shares(val2);
+	eMatrix<double> W(N, Dim), X(Dim, 1);
+  eMatrix<double> B(N, 1);
 
-  //share_value prod_val1_val2 = a.dot_product(share_5, share_7, comms);
-  //f64<D16> tempans;
-  //tempans.mValue = (prod_val1_val2.beta - (prod_val1_val2.alpha_1 + prod_val1_val2.alpha_2))>>16;
-  //std::cout<<"Temp ans: "<<tempans<<std::endl;
-
-  std::chrono::time_point<std::chrono::system_clock>
-    linearRegStop,
-    linearRegStart = std::chrono::system_clock::now();
-
-  share_value shared_W_dot_X = a.dot_product(shared_W, shared_X, comms);
-  share_value shared_W_dot_X_plus_b = a.local_add(shared_W_dot_X, shared_b);
+	for (u64 i = 0; i < W.size(); ++i)
+	{
+		  W(i) = (prng.get<int>() % 10 )/ double(10);
+	}
+	
+  for (u64 i = 0; i < X.size(); ++i)
+	{
+		  X(i) = (prng.get<int>() % 10 )/ double(10);
+	}
   
-  linearRegStop = std::chrono::system_clock::now();
+  std::cout<<"Actual product of matrices: "<<W*X<<"\n";
 
-  auto linearRegSeconds = std::chrono::duration_cast<std::chrono::milliseconds>(linearRegStop - linearRegStart).count() / 1000.0;
-  ostreamLock(std::cout)<<"Time for Linear Regression Inference in seconds: "<<linearRegSeconds<<std::endl;
+  for (u64 i = 0; i < B.size(); ++i)
+	{
+		  B(i) = (prng.get<int>() % 10 )/ double(10);
+	}
 
-  f64<D16> ans;
-  ans.mValue = shared_W_dot_X_plus_b.beta - (shared_W_dot_X_plus_b.alpha_1 + shared_W_dot_X_plus_b.alpha_2);
-  ostreamLock(std::cout)<<ans<<std::endl;
+  std::cout<<"W: "<<W<<std::endl;
+  std::cout<<"X: "<<X<<std::endl;
+  std::cout<<"B: "<<B<<std::endl;
+  const Decimal D = D16;
+  astraML p;
 
-  return shared_W_dot_X_plus_b;
-  //return shared_b;
+  p.init(pIdx, chlPrev, chlNext, toBlock(pIdx));
+  
+  sf64Matrix<D> shared_W(N, Dim), shared_X(Dim, 1), shared_B(N, 1);
+
+	if (pIdx == 0)
+	{
+		shared_W  = p.astra_share_matrix_preprocess_distributor<D>(W);
+		shared_X = p.astra_share_matrix_preprocess_distributor<D>(X);
+    shared_B = p.astra_share_matrix_preprocess_distributor<D>(B);
+
+    p.astra_share_matrix_online_distributor<D>(W, shared_W);
+    p.astra_share_matrix_online_distributor<D>(X, shared_X);
+    p.astra_share_matrix_online_distributor<D>(B, shared_B);
+
+	}
+	else
+	{
+    f64Matrix<D> alpha_X_share(Dim, 1), alpha_W_share(N, Dim), beta_X(Dim, 1), beta_W(N, Dim), alpha_B_share(N, 1), beta_B(N, 1);
+
+		alpha_W_share  = p.astra_share_matrix_preprocess_evaluator<D>(0);
+		alpha_X_share = p.astra_share_matrix_preprocess_evaluator<D>(0);
+    alpha_B_share = p.astra_share_matrix_preprocess_evaluator<D>(0);
+
+    beta_W = p.astra_share_matrix_online_evaluator<D>(0);
+    beta_X = p.astra_share_matrix_online_evaluator<D>(0);
+    beta_B = p.astra_share_matrix_online_evaluator<D>(0);
+
+    shared_W[0] = (i64Matrix&)alpha_W_share;
+    shared_W[1] = (i64Matrix&)beta_W;
+    shared_X[0] = (i64Matrix&)alpha_X_share;
+    shared_X[1] = (i64Matrix&)beta_X;
+    shared_B[0] = (i64Matrix&)alpha_B_share;
+    shared_B[1] = (i64Matrix&)beta_B;
+	}
+
+  sf64Matrix<D> shared_W_times_X (N, 1),shared_W_times_X_plus_B (N, 1);
+  eMatrix<double> ans (N, 1);
+  shared_W_times_X = p.mul(shared_W, shared_X);
+  shared_W_times_X_plus_B = p.add(shared_W_times_X, shared_B);
+  ans = p.reveal(shared_W_times_X_plus_B);
+  std::cout<<"Ans: "<<ans<<std::endl;
+	return 0;
 }
 
-//W is weight vector, X is coordinates vector, b is bas
-//Aim: Compute sigmoid(W.X + b)
-share_value astra_logistic_reg_inference(oc::CLP& cmd, vector<vector<share_value>> shared_W, vector<vector<share_value>> shared_X, share_value shared_b, CommPkg comms[3], astraML& a)
+int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, Session& chlPrev, Session& chlNext, bool logistic)
 {
+  PRNG prng(toBlock(1));
+
+	eMatrix<double> W(N, Dim), X(Dim, 1);
+
+	for (u64 i = 0; i < W.size(); ++i)
+	{
+		  W(i) = (prng.get<int>() % 10 )/ double(10);
+	}
+	
+  for (u64 i = 0; i < X.size(); ++i)
+	{
+		  X(i) = (prng.get<int>() % 10 )/ double(10);
+	}
   
-  share_value shared_W_dot_X = a.dot_product(shared_W, shared_X, comms);
+  std::cout<<"Actual product of matrices: "<<W*X<<"\n";
+
+  std::cout<<"W: "<<W<<std::endl;
+  std::cout<<"X: "<<X<<std::endl;
+  const Decimal D = D16;
+  astraML p;
+
+  p.init(pIdx, chlPrev, chlNext, toBlock(pIdx));
   
-  f64<D16> half = 0.5, minus_half = -0.5, one = 1.0;
+  sf64Matrix<D> shared_W(N, Dim), shared_X(Dim, 1);
+
+	if (pIdx == 0)
+	{
+		shared_W  = p.astra_share_matrix_preprocess_distributor<D>(W);
+		shared_X = p.astra_share_matrix_preprocess_distributor<D>(X);
+
+    p.astra_share_matrix_online_distributor<D>(W, shared_W);
+    p.astra_share_matrix_online_distributor<D>(X, shared_X);
+	}
+	else
+	{
+    f64Matrix<D> alpha_X_share(Dim, 1), alpha_W_share(N, Dim), beta_X(Dim, 1), beta_W(N, Dim);
+
+		alpha_W_share  = p.astra_share_matrix_preprocess_evaluator<D>(0);
+		alpha_X_share = p.astra_share_matrix_preprocess_evaluator<D>(0);
+
+    beta_W = p.astra_share_matrix_online_evaluator<D>(0);
+    beta_X = p.astra_share_matrix_online_evaluator<D>(0);
+
+    shared_W[0] = (i64Matrix&)alpha_W_share;
+    shared_W[1] = (i64Matrix&)beta_W;
+    shared_X[0] = (i64Matrix&)alpha_X_share;
+    shared_X[1] = (i64Matrix&)beta_X;
+	}
+
+  sf64Matrix<D> shared_W_times_X (N, 1);
+  eMatrix<double> ans (N, 1);
+  shared_W_times_X = p.mul(shared_W, shared_X);
+
+  f64<D> half = 0.5, minus_half = -0.5 one = 1.0;
   
-  share_value shared_one;
-  shared_one.alpha_1 = 0;
-  shared_one.alpha_2 = 0;
-  shared_one.beta = one.mValue;
 
-  share_value val1 = a.add_const(shared_W_dot_X, half);
-  share_value val2 = a.add_const(shared_W_dot_X, minus_half);
-
-  bool_share_value b1 = a.bit_extraction(val1);
-  bool_share_value b2 = a.bit_extraction(val2);
-
-  share_value b1_val1 = a.bit_injection(b1, val1, comms);
-  share_value b2_val2 = a.bit_injection(b2, val2, comms);
-
-  share_value one_plus_b2_val2 = a.local_add(shared_one, b2_val2);
-  share_value sigmoid_shared_W_dot_X = a.local_subtract(one_plus_b2_val2, b1_val1);
-
-  //bool_share_value not_b2 = a.not_bool_share(b2);
-  //bool_share_value not_b1 = a.not_bool_share(b1);
-  //bool_share_value c = a.bit_multiplication(not_b1, b2, comms);
-  //share_value cx = a.bit_injection(c, val1, comms);
-  //share_value shared_not_b2 = a.bit2A(not_b2, comms);
-  //share_value sigmoid_shared_W_dot_X = a.local_add(cx, shared_not_b2);
-   f64<D16> ans;
-   ans.mValue = sigmoid_shared_W_dot_X.beta - (sigmoid_shared_W_dot_X.alpha_1 + sigmoid_shared_W_dot_X.alpha_2);
-  ostreamLock(std::cout)<<ans<<std::endl;
-
-  return sigmoid_shared_W_dot_X;
-
+  ans = p.reveal(shared_W_times_X);
+  std::cout<<"Ans: "<<ans<<std::endl;
+	return 0;
 }
 
 int astra_pred_inference_sh(oc::CLP& cmd)
 {
-
-  oc::IOService ios;
-
-  auto chl01 = oc::Session(ios, "127.0.0.1:1313", oc::SessionMode::Server, "01").addChannel();
-  auto chl10 = oc::Session(ios, "127.0.0.1:1313", oc::SessionMode::Client, "01").addChannel();
-  auto chl02 = oc::Session(ios, "127.0.0.1:1313", oc::SessionMode::Server, "02").addChannel();
-  auto chl20 = oc::Session(ios, "127.0.0.1:1313", oc::SessionMode::Client, "02").addChannel();
-  auto chl12 = oc::Session(ios, "127.0.0.1:1313", oc::SessionMode::Server, "12").addChannel();
-  auto chl21 = oc::Session(ios, "127.0.0.1:1313", oc::SessionMode::Client, "12").addChannel();
-
-  CommPkg comms[3];
-  comms[0] = { chl02, chl01 };
-  comms[1] = { chl10, chl12 };
-  comms[2] = { chl21, chl20 };
-
-  astraML a;
-  a.key_channel_setup();
-   
-  vector<vector<f64<D16>>> W, X;
-  f64<D16> b = 5;
-  for(u64 i=0; i<1; ++i)
+  auto N = cmd.getManyOr<int>("N", {2});
+  auto D = cmd.getManyOr<int>("D", {2});
+  IOService ios(cmd.isSet("p") ? 3 : 7);
+  std::vector<std::thread> thrds;
+  for(u64 i=0; i<3; ++i)
   {
-    vector<f64<D16>> row;
-    for(u64 j=0; j<10; ++j)
-        row.push_back((j-j)/double(3));
-    W.push_back(row);
+		if (cmd.isSet("p") == false || cmd.get<int>("p") == i)
+		{
+        thrds.emplace_back(std::thread([i, N, D, &cmd, &ios]() {
+            auto next = (i+1) %3;
+            auto prev = (i+2) %3;
+
+            auto cNameNext = std::to_string(std::min(i, next)) + std::to_string(std::max(i, next));
+            auto cNamePrev = std::to_string(std::min(i, prev)) + std::to_string(std::max(i, prev));
+
+            auto modeNext = i < next ? SessionMode::Server : SessionMode::Client;
+            auto modePrev = i < prev ? SessionMode::Server : SessionMode::Client;
+
+            auto portNext = 1212 + std::min(i, next);
+            auto portPrev = 1212 + std::min(i, prev);
+
+            Session epNext(ios, "127.0.0.1", portNext, modeNext, cNameNext);
+            Session epPrev(ios, "127.0.0.1", portPrev, modePrev, cNamePrev);
+            std::cout<<"party "<<i<<" next "<<portNext<<" mode=server?:"<<(modeNext == SessionMode::Server) << " name " << cNameNext << std::endl;
+            std::cout<<"party "<<i<<" prev "<<portPrev<<" mode=server?:"<<(modePrev == SessionMode::Server) << " name " << cNamePrev << std::endl;
+            auto chlNext = epNext.addChannel();
+            auto chlPrev = epPrev.addChannel();
+
+            chlNext.waitForConnection();
+            chlPrev.waitForConnection();
+
+            chlNext.send(i);
+            chlPrev.send(i);
+
+            u64 prevAct, nextAct;
+            chlNext.recv(nextAct);
+            chlPrev.recv(prevAct);
+
+            if (next != nextAct)
+              std::cout<< "bad next party idx, act: " << nextAct << " exp: "<<next<<std::endl;
+            if (prev != prevAct)
+              std::cout<< "bad prev party idx, act: " << prevAct << " exp: "<<prev<<std::endl;
+
+            ostreamLock(std::cout)<<"party "<<i<<" start"<<std::endl;
+            auto print = cmd.isSet("p") || i == 0;
+            for(auto n: N)
+            {
+              for(auto d: D)
+              {
+                astra_linear_reg_inference(n, d, i, print, cmd, epPrev, epNext, 0);
+              }
+            }
+        }));
+    }
   }
 
-  for(u64 i=0; i<1; ++i)
-  {
-    vector<f64<D16>> row;
-    for(u64 j=0; j<10; ++j)
-        row.push_back((j+10)/double(3));
-    X.push_back(row);
-  }
+  for (auto& t : thrds)
+    t.join();
   
-  ostreamLock(std::cout)<<"W: ";
-  for(u64 i=0; i<W.size(); ++i)
-  {
-    for(u64 j=0; j<W[0].size(); ++j)
-      ostreamLock(std::cout)<<W[i][j]<<' ';
-    ostreamLock(std::cout)<<std::endl;
-  }
-  
-  ostreamLock(std::cout)<<"X: ";
-  for(u64 i=0; i<X.size(); ++i)
-  {
-    for(u64 j=0; j<X[0].size(); ++j)
-      ostreamLock(std::cout)<<X[i][j]<<' ';
-    ostreamLock(std::cout)<<std::endl;
-  }
-  
-  ostreamLock(std::cout)<<"b: ";
-  ostreamLock(std::cout)<<b<<std::endl;
-
-  vector<vector<share_value>> shared_W, shared_X;
-  share_value shared_b;
-  shared_W = a.generate_shares(W);
-  shared_X = a.generate_shares(X);
-  shared_b = a.generate_shares(b);
-
-  if (cmd.isSet("linear-reg"))
-  {
-    astra_linear_reg_inference(cmd, shared_W, shared_X, shared_b, comms, a);
-  }
-  else if (cmd.isSet("logistic-reg"))
-  {
-    astra_logistic_reg_inference(cmd, shared_W, shared_X, shared_b, comms, a);
-  }
-
   return 0;
 }
