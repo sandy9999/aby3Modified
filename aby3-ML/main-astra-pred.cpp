@@ -13,7 +13,7 @@ using namespace oc;
 
 //const Decimal Dec(Decimal::D8);
 
-int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, Session& chlPrev, Session& chlNext, bool logistic)
+int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, Session& chlPrev, Session& chlNext)
 {
   PRNG prng(toBlock(1));
 
@@ -60,25 +60,16 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 	}
 	else
 	{
-    f64Matrix<D> alpha_X_share(Dim, 1), alpha_W_share(N, Dim), beta_X(Dim, 1), beta_W(N, Dim), alpha_B_share(N, 1), beta_B(N, 1);
+		shared_W[0]  = p.astra_share_matrix_preprocess_evaluator(0);
+		shared_X[0] = p.astra_share_matrix_preprocess_evaluator(0);
+    shared_B[0] = p.astra_share_matrix_preprocess_evaluator(0);
 
-		alpha_W_share  = p.astra_share_matrix_preprocess_evaluator<D>(0);
-		alpha_X_share = p.astra_share_matrix_preprocess_evaluator<D>(0);
-    alpha_B_share = p.astra_share_matrix_preprocess_evaluator<D>(0);
-
-    beta_W = p.astra_share_matrix_online_evaluator<D>(0);
-    beta_X = p.astra_share_matrix_online_evaluator<D>(0);
-    beta_B = p.astra_share_matrix_online_evaluator<D>(0);
-
-    shared_W[0] = (i64Matrix&)alpha_W_share;
-    shared_W[1] = (i64Matrix&)beta_W;
-    shared_X[0] = (i64Matrix&)alpha_X_share;
-    shared_X[1] = (i64Matrix&)beta_X;
-    shared_B[0] = (i64Matrix&)alpha_B_share;
-    shared_B[1] = (i64Matrix&)beta_B;
+    shared_W[1] = p.astra_share_matrix_online_evaluator(0);
+    shared_X[1] = p.astra_share_matrix_online_evaluator(0);
+    shared_B[1] = p.astra_share_matrix_online_evaluator(0);
 	}
 
-  sf64Matrix<D> shared_W_times_X (N, 1),shared_W_times_X_plus_B (N, 1);
+  sf64Matrix<D> shared_W_times_X,shared_W_times_X_plus_B;
   eMatrix<double> ans (N, 1);
   shared_W_times_X = p.mul(shared_W, shared_X);
   shared_W_times_X_plus_B = p.add(shared_W_times_X, shared_B);
@@ -87,7 +78,7 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 	return 0;
 }
 
-int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, Session& chlPrev, Session& chlNext, bool logistic)
+int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, Session& chlPrev, Session& chlNext)
 {
   PRNG prng(toBlock(1));
 
@@ -112,7 +103,7 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
 
   p.init(pIdx, chlPrev, chlNext, toBlock(pIdx));
   
-  sf64Matrix<D> shared_W(N, Dim), shared_X(Dim, 1);
+  sf64Matrix<D> shared_W, shared_X;
 
 	if (pIdx == 0)
 	{
@@ -124,29 +115,60 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
 	}
 	else
 	{
-    f64Matrix<D> alpha_X_share(Dim, 1), alpha_W_share(N, Dim), beta_X(Dim, 1), beta_W(N, Dim);
+		shared_W[0]  = p.astra_share_matrix_preprocess_evaluator(0);
+		shared_X[0] = p.astra_share_matrix_preprocess_evaluator(0);
 
-		alpha_W_share  = p.astra_share_matrix_preprocess_evaluator<D>(0);
-		alpha_X_share = p.astra_share_matrix_preprocess_evaluator<D>(0);
-
-    beta_W = p.astra_share_matrix_online_evaluator<D>(0);
-    beta_X = p.astra_share_matrix_online_evaluator<D>(0);
-
-    shared_W[0] = (i64Matrix&)alpha_W_share;
-    shared_W[1] = (i64Matrix&)beta_W;
-    shared_X[0] = (i64Matrix&)alpha_X_share;
-    shared_X[1] = (i64Matrix&)beta_X;
+    shared_W[1] = p.astra_share_matrix_online_evaluator(0);
+    shared_X[1] = p.astra_share_matrix_online_evaluator(0);
 	}
 
-  sf64Matrix<D> shared_W_times_X (N, 1);
+  sf64Matrix<D> shared_W_times_X;
   eMatrix<double> ans (N, 1);
   shared_W_times_X = p.mul(shared_W, shared_X);
 
-  f64<D> half = 0.5, minus_half = -0.5 one = 1.0;
-  
+  f64<D> half = 0.5, minus_half = -0.5;
+  sf64Matrix<D> val1, val2, shared_one;
 
+  shared_one[0].setZero(shared_W_times_X.rows(), shared_W_times_X.cols());
+  shared_one[1].setZero(shared_W_times_X.rows(), shared_W_times_X.cols());
+  if(pIdx != 0)
+  {
+    shared_one[1].fill(1<<16);
+  }
+
+  val1 = p.add_const(shared_W_times_X, half);
+  val2 = p.add_const(shared_W_times_X, minus_half);
+
+  si64Matrix bool_shared_b1, bool_shared_b2;
+  bool_shared_b1 = p.bit_extraction(p.reveal(val1));
+  bool_shared_b2 = p.bit_extraction(p.reveal(val2));
+  
+  sf64Matrix<D> shared_b1, shared_b2;
+  shared_b1 = p.bit_injection(bool_shared_b1, val1);
+  shared_b2 = p.bit_injection(bool_shared_b2, val2);
+ 
+  sf64Matrix<D> shared_b2_minus_b1, shared_sigmoid;
+  shared_b2_minus_b1 = p.subtract(shared_b2, shared_b1);
+  shared_sigmoid = p.add(shared_b2_minus_b1, shared_one);
+  /*
   ans = p.reveal(shared_W_times_X);
   std::cout<<"Ans: "<<ans<<std::endl;
+  ans = p.reveal(val1);
+  std::cout<<"val1: "<<ans<<std::endl;
+  ans = p.reveal(val2);
+  std::cout<<"val2: "<<ans<<std::endl;
+  i64Matrix ans1;
+  ans1 = p.reveal(bool_shared_b1);
+  std::cout<<"b1: "<<ans1<<std::endl;
+  ans1 = p.reveal(bool_shared_b2);
+  std::cout<<"b2: "<<ans1<<std::endl;
+  ans = p.reveal(shared_b1);
+  std::cout<<"b1: "<<ans<<std::endl;
+  ans = p.reveal(shared_b2);
+  std::cout<<"b2: "<<ans<<std::endl;
+  */
+  ans = p.reveal(shared_sigmoid);
+  std::cout<<"sigmoid: "<<ans<<std::endl;
 	return 0;
 }
 
@@ -200,8 +222,10 @@ int astra_pred_inference_sh(oc::CLP& cmd)
             for(auto n: N)
             {
               for(auto d: D)
-              {
-                astra_linear_reg_inference(n, d, i, print, cmd, epPrev, epNext, 0);
+              { if (cmd.isSet("log-reg"))
+                  astra_logistic_reg_inference(n, d, i, print, cmd, epPrev, epNext);
+                else if (cmd.isSet("lin-reg"))
+                  astra_linear_reg_inference(n, d, i, print, cmd, epPrev, epNext);
               }
             }
         }));

@@ -6,11 +6,10 @@
 namespace aby3
 {
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_preprocess_distributor(Sh3Task dep, si64& alpha_X)
+	Sh3Task AstraSh3Encryptor::astra_share_preprocess_distributor(Sh3Task dep, si64& alpha_X)
 	{
 
 		return dep.then([this, &alpha_X](CommPkg& comm, Sh3Task& self) {
-
         alpha_X[0] = mShareGen.getShare(0,1,0);
         alpha_X[1] = mShareGen.getShare(1,0,0);
 
@@ -21,30 +20,31 @@ namespace aby3
 
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_preprocess_evaluator(Sh3Task dep, i64& alpha_X_share)
+	Sh3Task AstraSh3Encryptor::astra_share_preprocess_evaluator(Sh3Task dep, i64& alpha_X_share)
 	{
 		return dep.then([this, &alpha_X_share](CommPkg& comm, Sh3Task& self) {
-
-        auto fu = self.mRuntime->mPartyIdx == 1 ? comm.mPrev.asyncRecv(alpha_X_share) : comm.mNext.asyncRecv(alpha_X_share);
-				self.then([fu = std::move(fu)](CommPkg& comm, Sh3Task& self) mutable {
-						fu.get();
-						});
+          if(self.mRuntime->mPartyIdx == 1)
+          {
+            alpha_X_share = mShareGen.getShare(1, 0, 0);
+          }
+          else
+          {
+            alpha_X_share = mShareGen.getShare(0, 1, 0);
+          }
 				}).getClosure();
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_online_distributor(Sh3Task dep, i64& X, si64& alpha_X)
+	Sh3Task AstraSh3Encryptor::astra_share_online_distributor(Sh3Task dep, i64& X, si64& alpha_X)
 	{
-
 		return dep.then([this, &X, &alpha_X](CommPkg& comm, Sh3Task& self) {
         i64 beta_X;
         beta_X = X + alpha_X[0] + alpha_X[1];
 				comm.mNext.asyncSendCopy(beta_X);
 				comm.mPrev.asyncSendCopy(beta_X);
 		}).getClosure();
-
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_online_evaluator(Sh3Task dep, i64 & beta_X, u64& partyIdx)
+	Sh3Task AstraSh3Encryptor::astra_share_online_evaluator(Sh3Task dep, i64 & beta_X, u64& partyIdx)
 	{
 		return dep.then([this, &beta_X, &partyIdx](CommPkg& comm, Sh3Task& self) {
 
@@ -55,35 +55,42 @@ namespace aby3
 				}).getClosure();
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_matrix_preprocess_distributor(Sh3Task dep, si64Matrix & alpha_X)
+	Sh3Task AstraSh3Encryptor::astra_share_matrix_preprocess_distributor(Sh3Task dep, si64Matrix & alpha_X)
 	{
 
 		return dep.then([this, &alpha_X](CommPkg& comm, Sh3Task& self) {
-
 				for (u64 i = 0; i < alpha_X.mShares[0].size(); ++i)
         {
 				  alpha_X.mShares[0](i) = mShareGen.getShare(0, 1, 0);
           alpha_X.mShares[1](i) = mShareGen.getShare(1, 0, 0);
         }
 
-				comm.mNext.asyncSendCopy(alpha_X.mShares[0].data(), alpha_X.mShares[0].size());
-				comm.mPrev.asyncSendCopy(alpha_X.mShares[1].data(), alpha_X.mShares[1].size());
-
 		}).getClosure();
 
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_matrix_preprocess_evaluator(Sh3Task dep, i64Matrix & alpha_X_share)
+	Sh3Task AstraSh3Encryptor::astra_share_matrix_preprocess_evaluator(Sh3Task dep, i64Matrix & alpha_X_share)
 	{
 		return dep.then([this, &alpha_X_share](CommPkg& comm, Sh3Task& self) {
-        auto fu = self.mRuntime->mPartyIdx == 1 ? comm.mPrev.asyncRecv(alpha_X_share.data(), alpha_X_share.size()) : comm.mNext.asyncRecv(alpha_X_share.data(), alpha_X_share.size());
-				self.then([fu = std::move(fu)](CommPkg& comm, Sh3Task& self) mutable {
-						fu.get();
-						});
+        if(self.mRuntime->mPartyIdx == 1)
+        {
+          for (u64 i = 0; i < alpha_X_share.size(); ++i)
+          {
+            alpha_X_share(i) = mShareGen.getShare(1, 0, 0);
+          }
+        }
+        else
+        {
+          for (u64 i = 0; i < alpha_X_share.size(); ++i)
+          {
+            alpha_X_share(i) = mShareGen.getShare(0, 1, 0);
+          }
+        }
+
 				}).getClosure();
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_matrix_online_distributor(Sh3Task dep, i64Matrix& X, si64Matrix& alpha_X)
+	Sh3Task AstraSh3Encryptor::astra_share_matrix_online_distributor(Sh3Task dep, i64Matrix& X, si64Matrix& alpha_X)
 	{
 
 		return dep.then([this, &X, &alpha_X](CommPkg& comm, Sh3Task& self) {
@@ -104,7 +111,7 @@ namespace aby3
 
 	}
 
-	Sh3Task AstraSh3Encryptor::astra_int_share_matrix_online_evaluator(Sh3Task dep, i64Matrix & beta_X, u64& partyIdx)
+	Sh3Task AstraSh3Encryptor::astra_share_matrix_online_evaluator(Sh3Task dep, i64Matrix & beta_X, u64& partyIdx)
 	{
 		return dep.then([this, &beta_X, &partyIdx](CommPkg& comm, Sh3Task& self) {
 
