@@ -19,27 +19,27 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 
 	eMatrix<double> W(N, Dim), X(Dim, 1);
   eMatrix<double> B(N, 1);
-
+  //std::cout<<"PRNG value: "<<prng.get<int>()<<std::endl;
 	for (u64 i = 0; i < W.size(); ++i)
 	{
-		  W(i) = (prng.get<int>() % 10 )/ double(10);
+		  W(i) = (prng.get<int>()%10000000)/ double(1000);
 	}
 	
   for (u64 i = 0; i < X.size(); ++i)
 	{
-		  X(i) = (prng.get<int>() % 10 )/ double(10);
+		  X(i) = (prng.get<int>()%10000000)/ double(1000);
 	}
-  
-  std::cout<<"Actual product of matrices: "<<W*X<<"\n";
 
   for (u64 i = 0; i < B.size(); ++i)
 	{
-		  B(i) = (prng.get<int>() % 10 )/ double(10);
+		  B(i) = (prng.get<int>()%10000000)/ double(1000);
 	}
+  std::cout<<fixed;  
 
   std::cout<<"W: "<<W<<std::endl;
   std::cout<<"X: "<<X<<std::endl;
   std::cout<<"B: "<<B<<std::endl;
+  std::cout<<"Actual product of matrices + bias: "<<W*X+B<<"\n";
   const Decimal D = D16;
   astraML p;
 
@@ -71,8 +71,15 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 
   sf64Matrix<D> shared_W_times_X,shared_W_times_X_plus_B;
   eMatrix<double> ans (N, 1);
+  std::chrono::time_point<std::chrono::system_clock>
+    linearRegStop,
+    linearRegStart = std::chrono::system_clock::now();
   shared_W_times_X = p.mul(shared_W, shared_X);
   shared_W_times_X_plus_B = p.add(shared_W_times_X, shared_B);
+
+  linearRegStop = std::chrono::system_clock::now();
+  auto linearRegMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(linearRegStop - linearRegStart).count();
+  std::cout<<"Time for Linear Regression in microseconds: "<<linearRegMicroSeconds<<std::endl;
   ans = p.reveal(shared_W_times_X_plus_B);
   std::cout<<"Ans: "<<ans<<std::endl;
 	return 0;
@@ -86,18 +93,18 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
 
 	for (u64 i = 0; i < W.size(); ++i)
 	{
-		  W(i) = (prng.get<int>() % 10 )/ double(10);
+		  W(i) = (prng.get<int>()%10000000)/ double(1000);
 	}
 	
   for (u64 i = 0; i < X.size(); ++i)
 	{
-		  X(i) = (prng.get<int>() % 10 )/ double(10);
+		  X(i) = (prng.get<int>()%10000000)/ double(1000);
 	}
-  
-  std::cout<<"Actual product of matrices: "<<W*X<<"\n";
-
+ 
+  std::cout<<fixed;
   std::cout<<"W: "<<W<<std::endl;
   std::cout<<"X: "<<X<<std::endl;
+  std::cout<<"Actual product of matrices: "<<W*X<<"\n";
   const Decimal D = D16;
   astraML p;
 
@@ -122,10 +129,8 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
     shared_X[1] = p.astra_share_matrix_online_evaluator(0);
 	}
 
-  sf64Matrix<D> shared_W_times_X;
+  sf64Matrix<D> shared_W_times_X(N, 1);
   eMatrix<double> ans (N, 1);
-  shared_W_times_X = p.mul(shared_W, shared_X);
-
   f64<D> half = 0.5, minus_half = -0.5;
   sf64Matrix<D> val1, val2, shared_one;
 
@@ -135,6 +140,12 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
   {
     shared_one[1].fill(1<<16);
   }
+
+  std::chrono::time_point<std::chrono::system_clock>
+    logisticRegStop,
+    logisticRegStart = std::chrono::system_clock::now();
+
+  shared_W_times_X = p.mul(shared_W, shared_X);
 
   val1 = p.add_const(shared_W_times_X, half);
   val2 = p.add_const(shared_W_times_X, minus_half);
@@ -150,9 +161,14 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
   sf64Matrix<D> shared_b2_minus_b1, shared_sigmoid;
   shared_b2_minus_b1 = p.subtract(shared_b2, shared_b1);
   shared_sigmoid = p.add(shared_b2_minus_b1, shared_one);
-  /*
+
+  logisticRegStop = std::chrono::system_clock::now();
+  auto logisticRegMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(logisticRegStop - logisticRegStart).count();
+  std::cout<<"Time for Logistic Regression in microseconds: "<<logisticRegMicroSeconds<<std::endl;
+  
   ans = p.reveal(shared_W_times_X);
   std::cout<<"Ans: "<<ans<<std::endl;
+  /*
   ans = p.reveal(val1);
   std::cout<<"val1: "<<ans<<std::endl;
   ans = p.reveal(val2);
@@ -174,8 +190,8 @@ int astra_logistic_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd,
 
 int astra_pred_inference_sh(oc::CLP& cmd)
 {
-  auto N = cmd.getManyOr<int>("N", {2});
-  auto D = cmd.getManyOr<int>("D", {2});
+  auto N = cmd.getManyOr<int>("N", {10});
+  auto D = cmd.getManyOr<int>("D", {10});
   IOService ios(cmd.isSet("p") ? 3 : 7);
   std::vector<std::thread> thrds;
   for(u64 i=0; i<3; ++i)

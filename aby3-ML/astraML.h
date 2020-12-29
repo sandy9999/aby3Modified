@@ -192,22 +192,34 @@ namespace aby3
 		template<Decimal D>
 		sf64Matrix<D> add(const sf64Matrix<D>& left, const sf64Matrix<D>& right)
 		{
+      std::chrono::time_point<std::chrono::system_clock>
+        addStop,
+        addStart = std::chrono::system_clock::now();
 			if (left.rows() != right.rows() || left.cols() != right.cols())
 				throw RTE_LOC;
 
 			sf64Matrix<D> sum(left.rows(), left.cols());
       sum = left + right;
+      addStop = std::chrono::system_clock::now();
+      auto addMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(addStop - addStart).count();
+      std::cout<<"Time for Local Addition in microseconds: "<<addMicroSeconds<<std::endl;
 			return sum;
 		}
 
 		template<Decimal D>
 		sf64Matrix<D> subtract(const sf64Matrix<D>& left, const sf64Matrix<D>& right)
 		{
+      std::chrono::time_point<std::chrono::system_clock>
+        subtractStop,
+        subtractStart = std::chrono::system_clock::now();
 			if (left.rows() != right.rows() || left.cols() != right.cols())
 				throw RTE_LOC;
 
 			sf64Matrix<D> diff(left.rows(), left.cols());
       diff = left - right;
+      subtractStop = std::chrono::system_clock::now();
+      auto subtractMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(subtractStop - subtractStart).count();
+      std::cout<<"Time for Local Subtraction in microseconds: "<<subtractMicroSeconds<<std::endl;
 			return diff;
 		}
 
@@ -242,23 +254,35 @@ namespace aby3
 
     template<Decimal D>
     sf64Matrix<D> add_const(const sf64Matrix<D>& shared_X, const f64<D> val)
-    {
+   {
+        std::chrono::time_point<std::chrono::system_clock>
+          addConstStop,
+          addConstStart = std::chrono::system_clock::now();
+
+        sf64Matrix<D> ans(shared_X[0].rows(), shared_X[0].cols());
         if(mRt.mPartyIdx == 0)
         {
-          return shared_X;
+          ans = shared_X;
         }
         else
         {
-          sf64Matrix<D> ans(shared_X[0].rows(), shared_X[0].cols());
           ans[0] = shared_X[0];
           for (u64 i = 0; i<shared_X[1].size(); ++i)
             ans[1](i) = shared_X[1](i) + val.mValue;
-          return ans;
         }
+        addConstStop = std::chrono::system_clock::now();
+        auto addConstMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(addConstStop - addConstStart).count();
+        std::cout<<"Time for Adding a constant to matrix in microseconds: "<<addConstMicroSeconds<<std::endl;
+
+        return ans;
     }
 
     si64Matrix bit_extraction(eMatrix<double> val)
     {
+        std::chrono::time_point<std::chrono::system_clock>
+          bitExtractionStop,
+          bitExtractionStart = std::chrono::system_clock::now();
+
         si64Matrix ret(val.rows(), val.cols());
         for (u64 i = 0; i<val.size(); ++i)
           if(val(i) < 0)
@@ -280,12 +304,19 @@ namespace aby3
             ret.mShares[0](i) = 0;
             ret.mShares[1](i) = 0;
           }
+
+        bitExtractionStop = std::chrono::system_clock::now();
+        auto bitExtractionMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(bitExtractionStop - bitExtractionStart).count();
+        std::cout<<"Time for Bit Extraction in microseconds: "<<bitExtractionMicroSeconds<<std::endl;
         return ret;
     }
 
     template<Decimal D>
     sf64Matrix<D> bit_injection(si64Matrix c, sf64Matrix<D> x)
     {
+        std::chrono::time_point<std::chrono::system_clock>
+          bitInjectionStop,
+          bitInjectionStart = std::chrono::system_clock::now();
         sf64Matrix<D> final_share(x.rows(), x.cols());
         if (mRt.mPartyIdx == 0)
         {
@@ -298,6 +329,9 @@ namespace aby3
             mEval.astra_bit_injection_preprocess_evaluator(mRt.noDependencies(), alpha_c_share, alpha_left_alpha_right_share).get();
             mEval.astra_bit_injection_online(mRt.noDependencies(), c, x, alpha_c_share, alpha_left_alpha_right_share, final_share).get();
         }
+        bitInjectionStop = std::chrono::system_clock::now();
+        auto bitInjectionMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(bitInjectionStop - bitInjectionStart).count();
+        std::cout<<"Time for Bit Injection in microseconds: "<<bitInjectionMicroSeconds<<std::endl;
         return final_share;
     }
 
