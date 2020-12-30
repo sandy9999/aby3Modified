@@ -17,62 +17,58 @@ namespace aby3
         mPartyIdx = partyIdx;
     }
     
-    Sh3Task AstraSh3Evaluator::astra_asyncMul_preprocess_distributor(Sh3Task dep, const si64Matrix& left, const si64Matrix& right, si64Matrix& product_share)
+    Sh3Task AstraSh3Evaluator::astra_asyncMul_preprocess_distributor(Sh3Task dep, const si64Matrix& left, const si64Matrix& right, si64& product_share)
     {
         return dep.then([this, &left, &right, &product_share](CommPkg& comm, Sh3Task& self) {
+            if(left.rows() != 1 || left.cols()!= right.rows() || right.cols() !=1)
+              throw std::runtime_error("Only vectors allowed as arguments");
+            
+            product_share[0] =  mShareGen.getShare(0,1,0);
+            product_share[1] =  mShareGen.getShare(1,0,0);
 
-            for(u64 i = 0; i<product_share.size(); ++i)
-            {
-              product_share[0](i) = mShareGen.getShare(0,1,0);
-              product_share[1](i) = mShareGen.getShare(1,0,0);
-            }
-            i64Matrix alpha_products_sum, alpha_left_alpha_right_share_1, alpha_left_alpha_right_share_2;
-            alpha_products_sum = (left[0] + left[1])*(right[0] + right[1]);
-            alpha_left_alpha_right_share_1.resizeLike(alpha_products_sum);
-            for(u64 i = 0; i<alpha_left_alpha_right_share_1.size(); ++i)
-            alpha_left_alpha_right_share_1(i) = mShareGen.getShare(0, 1, 0);
+            i64 alpha_products_sum, alpha_left_alpha_right_share_1, alpha_left_alpha_right_share_2;
+            alpha_products_sum = ((left[0] + left[1])*(right[0] + right[1]))(0);
+            alpha_left_alpha_right_share_1 = mShareGen.getShare(0, 1, 0);
             alpha_left_alpha_right_share_2 = alpha_products_sum - alpha_left_alpha_right_share_1; 
-            comm.mPrev.asyncSendCopy(alpha_left_alpha_right_share_2.data(), alpha_left_alpha_right_share_2.size());
+            comm.mPrev.asyncSendCopy(alpha_left_alpha_right_share_2);
 
         }).getClosure();
     }
 
-    Sh3Task AstraSh3Evaluator::astra_asyncMul_preprocess_evaluator(Sh3Task dep, i64Matrix& product_alpha_share, i64Matrix& alpha_left_alpha_right_share)
+    Sh3Task AstraSh3Evaluator::astra_asyncMul_preprocess_evaluator(Sh3Task dep, i64& product_alpha_share, i64& alpha_left_alpha_right_share)
     {
       return dep.then([this, &product_alpha_share, &alpha_left_alpha_right_share](CommPkg& comm, Sh3Task& self) {
           if(self.mRuntime->mPartyIdx == 1)
           {
-            for(u64 i = 0; i<product_alpha_share.size(); ++i)
-              product_alpha_share(i) = mShareGen.getShare(1,0,0);
-            for(u64 i = 0; i<alpha_left_alpha_right_share.size(); ++i)
-              alpha_left_alpha_right_share(i) = mShareGen.getShare(1, 0, 0);
+              product_alpha_share = mShareGen.getShare(1,0,0);
+              alpha_left_alpha_right_share = mShareGen.getShare(1, 0, 0);
           }
           else
           {
-            for(u64 i = 0; i<product_alpha_share.size(); ++i)
-              product_alpha_share(i) = mShareGen.getShare(0,1,0);
-            comm.mNext.recv(alpha_left_alpha_right_share.data(), alpha_left_alpha_right_share.size());
+              product_alpha_share = mShareGen.getShare(0,1,0);
+            comm.mNext.recv(alpha_left_alpha_right_share);
           }
         }).getClosure();
     }
 
-    Sh3Task AstraSh3Evaluator::astra_asyncMul_online(Sh3Task dep, const si64Matrix& left , const si64Matrix& right, si64Matrix& product_share, i64Matrix& alpha_left_alpha_right_share, i64Matrix& product_alpha_share)
+    Sh3Task AstraSh3Evaluator::astra_asyncMul_online(Sh3Task dep, const si64Matrix& left , const si64Matrix& right, si64& product_share, i64& alpha_left_alpha_right_share, i64& product_alpha_share)
     {
         return dep.then([this, &left, &right, &product_share, &alpha_left_alpha_right_share, &product_alpha_share](CommPkg& comm, Sh3Task& self) {
+            if(left.rows() != 1 || left.cols()!= right.rows() || right.cols() !=1)
+              throw std::runtime_error("Only vectors allowed as arguments");
             product_share[0] = product_alpha_share;
-            product_share[1] = - (left[1]*right[0]) - (left[0]*right[1]) + product_alpha_share + alpha_left_alpha_right_share;
-            i64Matrix other_product_beta_share;
-            other_product_beta_share.resizeLike(product_alpha_share);
+            product_share[1] = - (left[1]*right[0])(0) - (left[0]*right[1])(0) + product_alpha_share + alpha_left_alpha_right_share;
+            i64 other_product_beta_share;
             if(self.mRuntime->mPartyIdx == 1)
             {
-              product_share[1]+=(left[1]*right[1]);
-              comm.mNext.asyncSendCopy(product_share[1].data(), product_share[1].size()); 
+              product_share[1]+=(left[1]*right[1])(0);
+              comm.mNext.asyncSendCopy(product_share[1]); 
             }
             else if(self.mRuntime->mPartyIdx == 2)
             {
-              comm.mPrev.asyncSendCopy(product_share[1].data(), product_share[1].size());
+              comm.mPrev.asyncSendCopy(product_share[1]);
             }
-            self.mRuntime->mPartyIdx == 1 ? comm.mNext.recv(other_product_beta_share.data(), other_product_beta_share.size()) : comm.mPrev.recv(other_product_beta_share.data(), other_product_beta_share.size());
+            self.mRuntime->mPartyIdx == 1 ? comm.mNext.recv(other_product_beta_share) : comm.mPrev.recv(other_product_beta_share);
             product_share[1]+=other_product_beta_share;
 
             }).getClosure();

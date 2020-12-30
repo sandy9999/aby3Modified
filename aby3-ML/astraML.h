@@ -230,26 +230,42 @@ namespace aby3
         matrixMultiplicationStop,
         matrixMultiplicationStart = std::chrono::system_clock::now();
 
-			sf64Matrix<D> product_share(left.rows(), right.cols());
+      sf64Matrix<D> ans(left.rows(), right.cols());
 			if (mRt.mPartyIdx == 0)
       {
-          mEval.astra_asyncMul_preprocess_distributor(mRt.noDependencies(), left, right, product_share).get();
+        for(u64 i = 0; i<left.rows(); ++i)
+        {
+			    sf64<D> product_share;
+          sf64Matrix<D> currentRow(1, right.rows());
+          currentRow.row(0) = left.row(i);
+          mEval.astra_asyncMul_preprocess_distributor(mRt.noDependencies(), currentRow, right, product_share).get();
+          ans[0](i) = product_share[0];
+          ans[1](i) = product_share[1];
+        }
       }
       else
       {
-          f64Matrix<D> product_alpha_share(left.rows(), right.cols()), alpha_left_alpha_right_share(left.rows(), right.cols());
-          mEval.astra_asyncMul_preprocess_evaluator(mRt.noDependencies(), product_alpha_share, alpha_left_alpha_right_share).get();
-    			mEval.astra_asyncMul_online(mRt.noDependencies(), left, right, product_share, alpha_left_alpha_right_share, product_alpha_share).get();
+          for(u64 i = 0; i<left.rows(); ++i)
+          {
+            f64<D> product_alpha_share, alpha_left_alpha_right_share;
+			      sf64<D> product_share;
+            sf64Matrix<D> currentRow(1, right.rows());
+            currentRow.row(0) = left.row(i);
+            mEval.astra_asyncMul_preprocess_evaluator(mRt.noDependencies(), product_alpha_share, alpha_left_alpha_right_share).get();
+            mEval.astra_asyncMul_online(mRt.noDependencies(), currentRow, right, product_share, alpha_left_alpha_right_share, product_alpha_share).get();
+            ans[0](i) = product_share[0];
+            ans[1](i) = product_share[1];
+          }
       }
-      for(u64 i = 0; i<product_share[0].size(); ++i)
+      for(u64 i = 0; i<ans.size(); ++i)
       {
-        product_share[0](i)>>=D;
-        product_share[1](i)>>=D;
+        ans[0](i)>>=D;
+        ans[1](i)>>=D;
       }
       matrixMultiplicationStop = std::chrono::system_clock::now();
       auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
       std::cout<<"Time for Matrix Multiplication in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
-			return product_share;
+			return ans;
 		}
 
     template<Decimal D>
