@@ -70,11 +70,27 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 	}
 
   sf64Matrix<D> shared_W_times_X,shared_W_times_X_plus_B;
+  std::array<f64Matrix<D>, 2> intermediate_shares;
+  intermediate_shares[0].resize(N, 1);
+  intermediate_shares[1].resize(N, 1);
   eMatrix<double> ans (N, 1);
   std::chrono::time_point<std::chrono::system_clock>
     linearRegStop,
     linearRegStart = std::chrono::system_clock::now();
-  shared_W_times_X = p.mul(shared_W, shared_X);
+
+  if(pIdx == 0)
+  {
+      shared_W_times_X = p.mul_preprocess_distributor(shared_W, shared_X);
+  }
+  else
+  {
+      intermediate_shares = p.mul_preprocess_evaluator(shared_W, shared_X);
+      shared_W_times_X = p.mul_online(shared_W, shared_X, intermediate_shares); 
+  }
+
+shared_W_times_X = p.mul(shared_W, shared_X);
+
+
   shared_W_times_X_plus_B = p.add(shared_W_times_X, shared_B);
 
   linearRegStop = std::chrono::system_clock::now();

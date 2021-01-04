@@ -51,7 +51,11 @@ namespace aby3
           {
             for(u64 i = 0; i<product_alpha_share.size(); ++i)
               product_alpha_share(i) = mShareGen.getShare(0,1,0);
-            comm.mNext.recv(alpha_left_alpha_right_share.data(), alpha_left_alpha_right_share.size());
+            auto fu = comm.mNext.asyncRecv(alpha_left_alpha_right_share.data(), alpha_left_alpha_right_share.size());
+
+				self.then([fu = std::move(fu)](CommPkg& comm, Sh3Task& self) mutable {
+						fu.get();
+						});
           }
         }).getClosure();
     }

@@ -252,6 +252,70 @@ namespace aby3
 			return product_share;
 		}
 
+		template<Decimal D>
+		sf64Matrix<D> mul_preprocess_distributor(const sf64Matrix<D>& left, const sf64Matrix<D>& right)
+		{
+      std::chrono::time_point<std::chrono::system_clock>
+        matrixMultiplicationStop,
+        matrixMultiplicationStart = std::chrono::system_clock::now();
+
+			sf64Matrix<D> product_share(left.rows(), right.cols());
+      mEval.astra_asyncMul_preprocess_distributor(mRt.noDependencies(), left, right, product_share).get();
+      
+      for(u64 i = 0; i<product_share[0].size(); ++i)
+      {
+        product_share[0](i)>>=D;
+        product_share[1](i)>>=D;
+      }
+      matrixMultiplicationStop = std::chrono::system_clock::now();
+      auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
+      std::cout<<"Time for Matrix Multiplication Preprocessing in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
+			return product_share;
+		}
+		
+    template<Decimal D>
+		std::array<f64Matrix<D>, 2> mul_preprocess_evaluator(const sf64Matrix<D>& left, const sf64Matrix<D>& right)
+		{
+      std::chrono::time_point<std::chrono::system_clock>
+        matrixMultiplicationStop,
+        matrixMultiplicationStart = std::chrono::system_clock::now();
+
+        std::array<f64Matrix<D>, 2> intermediate_shares;
+        intermediate_shares[0].resize(left.rows(), right.cols());
+        intermediate_shares[1].resize(left.rows(), right.cols());
+
+        f64Matrix<D> product_alpha_share(left.rows(), right.cols()), alpha_left_alpha_right_share(left.rows(), right.cols());
+          mEval.astra_asyncMul_preprocess_evaluator(mRt.noDependencies(), intermediate_shares[0], intermediate_shares[1]).get();
+      matrixMultiplicationStop = std::chrono::system_clock::now();
+      auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
+      std::cout<<"Time for Matrix Multiplication Preprocessing in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
+			return intermediate_shares;
+		}
+
+		template<Decimal D>
+		sf64Matrix<D> mul_online(const sf64Matrix<D>& left, const sf64Matrix<D>& right, std::array<f64Matrix<D>, 2> intermediate_shares)
+		{
+      std::chrono::time_point<std::chrono::system_clock>
+        matrixMultiplicationStop,
+        matrixMultiplicationStart = std::chrono::system_clock::now();
+
+			sf64Matrix<D> product_share(left.rows(), right.cols());
+      if(mRt.mPartyIdx != 0)
+      {
+    			mEval.astra_asyncMul_online(mRt.noDependencies(), left, right, product_share, intermediate_shares[1], intermediate_shares[0]).get();
+      }
+
+      for(u64 i = 0; i<product_share[0].size(); ++i)
+      {
+        product_share[0](i)>>=D;
+        product_share[1](i)>>=D;
+      }
+      matrixMultiplicationStop = std::chrono::system_clock::now();
+      auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
+      std::cout<<"Time for Matrix Multiplication Online in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
+			return product_share;
+		}
+
     template<Decimal D>
     sf64Matrix<D> add_const(const sf64Matrix<D>& shared_X, const f64<D> val)
    {
