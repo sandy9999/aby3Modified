@@ -16,6 +16,12 @@ namespace aby3
 		void init(u64 partyIdx, CommPkg& comm, block seed, u64 buffSize = 256);
 
 		bool DEBUG_disable_randomization = false;
+    
+    Sh3Task astra_asyncMulTruncation_preprocess_distributor(Sh3Task dep, const si64Matrix& left, const si64Matrix& right, si64Matrix& u_shares, Decimal D);
+
+    Sh3Task astra_asyncMulTruncation_preprocess_evaluator(Sh3Task dep, si64Matrix& u_shares, i64Matrix& m_share, Decimal D);
+
+    Sh3Task astra_asyncMulTruncation_online(Sh3Task dep, const si64Matrix& left , const si64Matrix& right, si64Matrix& u_shares, i64Matrix& m_share, si64Matrix& v_shares, Decimal D);
 
     Sh3Task astra_asyncMul_preprocess_distributor(Sh3Task dep, const si64Matrix& left, const si64Matrix& right, si64Matrix& product_share);
 
@@ -32,6 +38,15 @@ namespace aby3
     Sh3Task astra_bit_injection_online(Sh3Task dep, si64Matrix& c , si64Matrix& x, i64Matrix& alpha_c_share, i64Matrix& alpha_left_alpha_right_share, si64Matrix& final_share);
     
     Sh3Task astra_bit_injection_online_evaluator(Sh3Task dep, si64Matrix& final_share);
+
+    template<Decimal D>
+    Sh3Task astra_asyncMulTruncation_preprocess_distributor(Sh3Task dep, const sf64Matrix<D>& left, const sf64Matrix<D>& right, sf64Matrix<D>& u_shares);
+
+    template<Decimal D>
+    Sh3Task astra_asyncMulTruncation_preprocess_evaluator(Sh3Task dep, sf64Matrix<D>& u_shares, f64Matrix<D>& m_share);
+
+    template<Decimal D>
+    Sh3Task astra_asyncMulTruncation_online(Sh3Task dep, const sf64Matrix<D>& left , const sf64Matrix<D>& right, sf64Matrix<D>& u_shares, f64Matrix<D>& m_share, sf64Matrix<D>& v_shares);
 
     template<Decimal D>
 		Sh3Task astra_asyncMul_preprocess_distributor(
@@ -68,6 +83,44 @@ namespace aby3
     AstraSh3ShareGen mShareGen;
 
     };
+
+    template<Decimal D>
+    Sh3Task AstraSh3Evaluator::astra_asyncMulTruncation_preprocess_distributor(Sh3Task dep, const sf64Matrix<D>& left, const sf64Matrix<D>& right, sf64Matrix<D>& u_shares)
+    {
+      static_assert(sizeof(sf64Matrix<D>) == sizeof(si64Matrix), "assumption for this cast.");
+      auto& left_cast = (si64Matrix&)left;
+      auto& right_cast = (si64Matrix&)right;
+      auto& u_shares_cast = (si64Matrix&)u_shares;
+      return astra_asyncMulTruncation_preprocess_distributor(dep, left_cast, right_cast, u_shares_cast, D);
+        
+    }
+
+    template<Decimal D>
+    Sh3Task AstraSh3Evaluator::astra_asyncMulTruncation_preprocess_evaluator(Sh3Task dep, sf64Matrix<D>& u_shares, f64Matrix<D>& m_share)
+    {
+      static_assert(sizeof(sf64Matrix<D>) == sizeof(si64Matrix), "assumption for this cast.");
+      auto& u_shares_cast = (si64Matrix&)u_shares;
+
+      static_assert(sizeof(f64Matrix<D>) == sizeof(i64Matrix), "assumption for this cast.");
+      auto& m_share_cast = (i64Matrix&)m_share;
+      return astra_asyncMulTruncation_preprocess_evaluator(dep, u_shares_cast, m_share_cast, D);
+        
+    }
+
+    template<Decimal D>
+    Sh3Task AstraSh3Evaluator::astra_asyncMulTruncation_online(Sh3Task dep, const sf64Matrix<D>& left , const sf64Matrix<D>& right, sf64Matrix<D>& u_shares, f64Matrix<D>& m_share, sf64Matrix<D>& v_shares)
+    {
+      static_assert(sizeof(sf64Matrix<D>) == sizeof(si64Matrix), "assumption for this cast.");
+      auto& left_cast = (si64Matrix&)left;
+      auto& right_cast = (si64Matrix&)right;
+      auto& u_shares_cast = (si64Matrix&)u_shares;
+      auto& v_shares_cast = (si64Matrix&)v_shares;
+
+      static_assert(sizeof(f64Matrix<D>) == sizeof(i64Matrix), "assumption for this cast.");
+      auto& m_share_cast = (i64Matrix&)m_share;
+      return astra_asyncMulTruncation_online(dep, left_cast, right_cast, u_shares_cast, m_share_cast, v_shares_cast, D);
+
+    }
     
     template<Decimal D>
 		Sh3Task AstraSh3Evaluator::astra_asyncMul_preprocess_distributor(

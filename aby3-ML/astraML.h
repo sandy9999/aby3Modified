@@ -9,6 +9,13 @@
 
 namespace aby3
 {
+  
+  const Decimal D = D16;
+  struct truncationTuple {
+    f64Matrix<D> m_share;
+    sf64Matrix<D> u_shares;
+  };
+
 	class astraML
 	{
 	public:
@@ -314,6 +321,60 @@ namespace aby3
       auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
       std::cout<<"Time for Matrix Multiplication Online in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
 			return product_share;
+		}
+
+		template<Decimal D>
+		sf64Matrix<D> mul_truncation_preprocess_distributor(const sf64Matrix<D>& left, const sf64Matrix<D>& right)
+		{
+      std::chrono::time_point<std::chrono::system_clock>
+        matrixMultiplicationStop,
+        matrixMultiplicationStart = std::chrono::system_clock::now();
+
+			sf64Matrix<D> u_shares(left.rows(), right.cols());
+      mEval.astra_asyncMulTruncation_preprocess_distributor(mRt.noDependencies(), left, right, u_shares).get();
+      
+      matrixMultiplicationStop = std::chrono::system_clock::now();
+      auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
+      std::cout<<"Time for Matrix Multiplication with Truncation Preprocessing in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
+			return u_shares;
+		}
+		
+    template<Decimal D>
+		truncationTuple mul_truncation_preprocess_evaluator(const sf64Matrix<D>& left, const sf64Matrix<D>& right)
+		{
+      std::chrono::time_point<std::chrono::system_clock>
+        matrixMultiplicationStop,
+        matrixMultiplicationStart = std::chrono::system_clock::now();
+
+        truncationTuple intermediate_shares;
+        intermediate_shares.u_shares.resize(left.rows(), right.cols());
+        intermediate_shares.m_share.resize(left.rows(), right.cols());
+
+        mEval.astra_asyncMulTruncation_preprocess_evaluator(mRt.noDependencies(), intermediate_shares.u_shares, intermediate_shares.m_share).get();
+      matrixMultiplicationStop = std::chrono::system_clock::now();
+      auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
+      std::cout<<"Time for Matrix Multiplication with Truncation Preprocessing in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
+			return intermediate_shares;
+		}
+
+		template<Decimal D>
+		sf64Matrix<D> mul_truncation_online(const sf64Matrix<D>& left, const sf64Matrix<D>& right, truncationTuple intermediate_shares)
+		{
+      std::chrono::time_point<std::chrono::system_clock>
+        matrixMultiplicationStop,
+        matrixMultiplicationStart = std::chrono::system_clock::now();
+
+			sf64Matrix<D> v_shares(left.rows(), right.cols());
+      v_shares[0].setZero();
+      if(mRt.mPartyIdx != 0)
+      {
+    			mEval.astra_asyncMulTruncation_online(mRt.noDependencies(), left, right, intermediate_shares.u_shares, intermediate_shares.m_share, v_shares).get();
+      }
+
+      matrixMultiplicationStop = std::chrono::system_clock::now();
+      auto matrixMultiplicationMicroSeconds = std::chrono::duration_cast<std::chrono::microseconds>(matrixMultiplicationStop - matrixMultiplicationStart).count();
+      std::cout<<"Time for Matrix Multiplication Online in microseconds: "<<matrixMultiplicationMicroSeconds<<std::endl;
+			return v_shares;
 		}
 
     template<Decimal D>

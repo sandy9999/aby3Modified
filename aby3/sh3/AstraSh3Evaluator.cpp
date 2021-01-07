@@ -16,6 +16,99 @@ namespace aby3
         mShareGen.init(comm, seed, buffSize);
         mPartyIdx = partyIdx;
     }
+
+    Sh3Task AstraSh3Evaluator::astra_asyncMulTruncation_preprocess_distributor(Sh3Task dep, const si64Matrix& left, const si64Matrix& right, si64Matrix& u_shares, Decimal D)
+    {
+        return dep.then([this, &left, &right, &u_shares, D](CommPkg& comm, Sh3Task& self) {
+            
+            i64Matrix m1, m2;
+            m1.resizeLike(u_shares[0]);
+            m2.resizeLike(u_shares[0]);
+
+            for(u64 i = 0; i<m1.size(); ++i)
+            {
+              m1(i) = mShareGen.getShare(0,1,0);
+              m2(i) = mShareGen.getShare(1,0,0);
+            }
+            
+            i64Matrix alpha_z;
+            alpha_z = m1 + m2 - (left[0] + left[1])*(right[0] + right[1]);
+
+            //Local truncation
+            for(u64 i = 0; i < alpha_z.size(); ++i)
+              alpha_z(i)>>=D;
+            
+            for(u64 i = 0; i<u_shares[0].size(); ++i)
+                u_shares[0](i) = mShareGen.getShare(0, 1, 0);
+            for(u64 i = 0; i<u_shares[1].size(); ++i)
+                u_shares[1](i) = mShareGen.getShare(1, 0, 0);
+            i64Matrix beta_u;
+            beta_u = alpha_z + u_shares[0] + u_shares[1];
+
+            comm.mNext.asyncSendCopy(beta_u.data(), beta_u.size());
+            comm.mPrev.asyncSendCopy(beta_u.data(), beta_u.size());
+
+        }).getClosure();
+    }
+    
+    Sh3Task AstraSh3Evaluator::astra_asyncMulTruncation_preprocess_evaluator(Sh3Task dep, si64Matrix& u_shares, i64Matrix& m_share, Decimal D)
+    {
+      return dep.then([this, &u_shares, &m_share, D](CommPkg& comm, Sh3Task& self) {
+          if(self.mRuntime->mPartyIdx == 1)
+          {
+            for(u64 i = 0; i<m_share.size(); ++i)
+              m_share(i) = mShareGen.getShare(1,0,0);
+            for(u64 i = 0; i<u_shares[0].size(); ++i)
+              u_shares[0](i) = mShareGen.getShare(1, 0, 0);
+            auto fu = comm.mPrev.asyncRecv(u_shares[1].data(), u_shares[1].size());
+
+				self.then([fu = std::move(fu)](CommPkg& comm, Sh3Task& self) mutable {
+						fu.get();
+            });
+          }
+          else
+          {
+
+            for(u64 i = 0; i<m_share.size(); ++i)
+              m_share(i) = mShareGen.getShare(0,1,0);
+
+            for(u64 i = 0; i<u_shares[0].size(); ++i)
+              u_shares[0](i) = mShareGen.getShare(0, 1, 0);
+          
+            auto fu = comm.mNext.asyncRecv(u_shares[1].data(), u_shares[1].size());
+
+				self.then([fu = std::move(fu)](CommPkg& comm, Sh3Task& self) mutable {
+						fu.get();
+						});
+          }
+          
+        }).getClosure();
+    }
+    
+    Sh3Task AstraSh3Evaluator::astra_asyncMulTruncation_online(Sh3Task dep, const si64Matrix& left , const si64Matrix& right, si64Matrix& u_shares, i64Matrix& m_share, si64Matrix& v_shares, Decimal D)
+    {
+        return dep.then([this, &left, &right, &u_shares, &m_share, &v_shares, D](CommPkg& comm, Sh3Task& self) {
+
+            v_shares[1] = - (left[1]*right[0]) - (left[0]*right[1]) + m_share;
+            i64Matrix other_beta_v_share;
+            other_beta_v_share.resizeLike(v_shares[1]);
+            if(self.mRuntime->mPartyIdx == 1)
+            {
+              v_shares[1]+=(left[1]*right[1]);
+              comm.mNext.asyncSendCopy(v_shares[1].data(), v_shares[1].size()); 
+            }
+            else if(self.mRuntime->mPartyIdx == 2)
+            {
+              comm.mPrev.asyncSendCopy(v_shares[1].data(), v_shares[1].size());
+            }
+            self.mRuntime->mPartyIdx == 1 ? comm.mNext.recv(other_beta_v_share.data(), other_beta_v_share.size()) : comm.mPrev.recv(other_beta_v_share.data(), other_beta_v_share.size());
+            v_shares[1]+=other_beta_v_share;
+            
+            for(u64 i = 0; i < v_shares[1].size(); ++i)
+              v_shares[1](i)>>=D;
+
+            }).getClosure();
+    }
     
     Sh3Task AstraSh3Evaluator::astra_asyncMul_preprocess_distributor(Sh3Task dep, const si64Matrix& left, const si64Matrix& right, si64Matrix& product_share)
     {

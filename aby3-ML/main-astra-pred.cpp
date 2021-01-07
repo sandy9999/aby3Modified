@@ -46,6 +46,21 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
   p.init(pIdx, chlPrev, chlNext, toBlock(pIdx));
   
   sf64Matrix<D> shared_W(N, Dim), shared_X(Dim, 1), shared_B(N, 1);
+  
+  /*f64<D> a = (prng.get<int>()%100000000)/double(1000);
+  f64<D> b = (prng.get<int>()%100000000)/double(1000);
+  f64<D> ab;
+  ab.mValue = (a.mValue * b.mValue)>>D;
+  std::cout<<"a: "<<a<<std::endl;
+  std::cout<<"b: "<<b<<std::endl;
+  std::cout<<"a*b calculated: "<<ab<<std::endl;
+  std::cout<<"a*b actual: "<<a*b<<std::endl;*/
+
+  /*
+  f64<D> a = -49152;
+  a.mValue = a.mValue >> D;
+  cout<<"a: "<<a<<std::endl;
+  */
 
 	if (pIdx == 0)
 	{
@@ -70,9 +85,13 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 	}
 
   sf64Matrix<D> shared_W_times_X,shared_W_times_X_plus_B;
-  std::array<f64Matrix<D>, 2> intermediate_shares;
+
+  sf64Matrix<D> shared_W_times_X_u, shared_W_times_X_v;//Truncation Specific
+  truncationTuple intermediate_shares;
+
+  /*std::array<f64Matrix<D>, 2> intermediate_shares;
   intermediate_shares[0].resize(N, 1);
-  intermediate_shares[1].resize(N, 1);
+  intermediate_shares[1].resize(N, 1);*/
   eMatrix<double> ans (N, 1);
   std::chrono::time_point<std::chrono::system_clock>
     linearRegStop,
@@ -80,15 +99,23 @@ int astra_linear_reg_inference(int N, int Dim, int pIdx, bool print, CLP& cmd, S
 
   if(pIdx == 0)
   {
-      shared_W_times_X = p.mul_preprocess_distributor(shared_W, shared_X);
+      shared_W_times_X_u = p.mul_truncation_preprocess_distributor(shared_W, shared_X);
+      shared_W_times_X_v[0].setZero(N, 1);
+      shared_W_times_X_v[1].setZero(N, 1);
+      //shared_W_times_X = p.mul_preprocess_distributor(shared_W, shared_X);
   }
   else
   {
-      intermediate_shares = p.mul_preprocess_evaluator(shared_W, shared_X);
-      shared_W_times_X = p.mul_online(shared_W, shared_X, intermediate_shares); 
+       intermediate_shares =  p.mul_truncation_preprocess_evaluator(shared_W, shared_X);
+      shared_W_times_X_u = intermediate_shares.u_shares;
+      shared_W_times_X_v = p.mul_truncation_online(shared_W, shared_X, intermediate_shares);
+
+      //intermediate_shares = p.mul_preprocess_evaluator(shared_W, shared_X);
+      //shared_W_times_X = p.mul_online(shared_W, shared_X, intermediate_shares); 
   }
 
-shared_W_times_X = p.mul(shared_W, shared_X);
+  //shared_W_times_X = p.mul(shared_W, shared_X);
+  shared_W_times_X = shared_W_times_X_v - shared_W_times_X_u;
 
 
   shared_W_times_X_plus_B = p.add(shared_W_times_X, shared_B);
